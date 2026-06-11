@@ -160,7 +160,7 @@ function UIBerylDevice:UpdateStatusText()
         text_id = "st_zad_beryl_ui_status_ready"
     end
     
-    self.status_text:SetTextST(text_id)
+    self.status_text:SetText(game.translate_string(text_id))
 end
 
 --------------------------------------------------------------------------------
