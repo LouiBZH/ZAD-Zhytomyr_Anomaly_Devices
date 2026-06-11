@@ -134,40 +134,41 @@ end
 function artifact_item:__finalize()
 end
 
+function UIBerylDevice:AddArtifactEntry(entry)
+    local item = artifact_item(22)
+    item:SetWndSize(vector2():set(400, 22))
+    item.art_section = entry.section
+
+    local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
+    local condition_pct = math.floor(entry.condition * 100)
+    local txt = art_name .. " [" .. condition_pct .. "%]"
+    
+    item.txt:SetWndPos(vector2():set(0, 0))
+    item.txt:SetWndSize(vector2():set(400, 22))
+    pcall(function() item.txt:SetText(txt) end)
+
+    self.artifact_list:AddExistingItem(item)
+end
+
 --------------------------------------------------------------------------------
 -- Populate artifact list
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
-    pcall(function() self.artifact_list:RemoveAll() end)
+    self.artifact_list:RemoveAll()
     self.selected_data = nil
     self.artifact_data = {}
     
-    local actor = db.actor
-    if not actor then return end
+    local artifacts = beryl_device.find_perk_artifacts_in_inventory() or {}
     
-    -- DEBUG: count ALL inventory items
-    local total_items = 0
-    local iterate_worked = false
-    pcall(function()
-        actor:iterate_inventory(function(npc, item)
-            if item then total_items = total_items + 1 end
-        end, actor)
-        iterate_worked = true
-    end)
-    
-    local artifacts = {}
-    local ok, result = pcall(beryl_device.find_perk_artifacts_in_inventory)
-    if ok and result then artifacts = result end
+    for _, entry in ipairs(artifacts) do
+        self.artifact_data[entry.section] = entry
+        self:AddArtifactEntry(entry)
+    end
     
     if #artifacts == 0 then
-        local debug_msg = "iterate=" .. tostring(iterate_worked) .. " total=" .. tostring(total_items)
-        pcall(function() 
-            local item = artifact_item(self.artifact_list:GetItemHeight())
-            item.txt:SetText(debug_msg)
-            self.artifact_list:AddExistingItem(item)
-        end)
-        return
+        -- Empty list, nothing to show
     end
+end
     
     -- Sort by condition (most damaged first)
     table.sort(artifacts, function(a, b)
