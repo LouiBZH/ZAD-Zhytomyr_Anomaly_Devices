@@ -56,32 +56,26 @@ function beryl_device_wrapper:__init(obj) super(obj)
     -- Charging sound handle
     self.charge_sound = nil
     
-    -- Interaction flag (set up once)
-    self.interact_setup = false
-    
     -- Register for lookup
     wrapper_registry[self.object:id()] = self
     
     -- Tip text
     self.object:set_tip_text(game.translate_string("st_interact"))
+    
+    -- Set up use callback directly (engine may not auto-call binder:use_callback)
+    self.object:set_callback(callback.use_object, 
+        function(obj, binder)
+            if binder and binder.wrapper then
+                binder.wrapper:use_callback()
+            end
+        end, 
+        self.binder)
 end
 
 --------------------------------------------------------------------------------
 -- Update called every frame (delta in seconds)
 --------------------------------------------------------------------------------
 function beryl_device_wrapper:update(delta)
-    -- Set up interaction callback once (engine may not auto-call use_callback)
-    if not self.interact_setup then
-        self.object:set_callback(callback.use_object, 
-            function(obj, binder)
-                if binder and binder.wrapper then
-                    binder.wrapper:use_callback()
-                end
-            end, 
-            self.binder)
-        self.interact_setup = true
-    end
-    
     if self.device_state == "charging" then
         self.charge_timer = self.charge_timer - delta
         
@@ -382,16 +376,6 @@ function beryl_device_wrapper:finish_charging()
     if log_utils then
         log_utils.msg("[ZAD_BERYL] Charge complete, cooldown: " .. tostring(self.cooldown_timer) .. "s")
     end
-end
-
---------------------------------------------------------------------------------
--- Remove all spawned anomaly effects
---------------------------------------------------------------------------------
-function beryl_device_wrapper:remove_anomaly_effects()
-    for _, anomaly in ipairs(self.anomaly_objects) do
-        pcall(function() anomaly.object:stop() end)
-    end
-    self.anomaly_objects = {}
 end
 
 --------------------------------------------------------------------------------
