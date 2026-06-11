@@ -36,7 +36,7 @@ end
 
 function find_perk_artifacts_in_inventory()
     local actor = get_actor()
-    if not actor or not actor:inventory_size then return {} end
+    if not actor or not actor.inventory_size then return {} end
 
     local result = {}
     for i = 0, actor:inventory_size() - 1 do
