@@ -193,11 +193,27 @@ function UIBerylDevice:UpdateMainModeButtons()
 end
 
 --------------------------------------------------------------------------------
+-- Custom list item class for artifact display
+--------------------------------------------------------------------------------
+class "artifact_list_item" (CUIListBoxItem)
+
+function artifact_list_item:__init(height) super(height)
+    self.art_section = nil
+    self.txt = self:GetTextItem()
+    self.txt:SetFont(GetFontLetterica16Russian())
+    self.txt:SetEllipsis(true)
+end
+
+function artifact_list_item:__finalize()
+end
+
+--------------------------------------------------------------------------------
 -- Populate artifact list with perk artifacts from player inventory
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
     self.artifact_list:RemoveAll()
     self.artifact_list_data = {}
+    self.artifact_entries = {}
     
     local actor = db.actor
     if not actor then return end
@@ -228,13 +244,20 @@ function UIBerylDevice:PopulateArtifactList()
         local condition_pct = math.floor(entry.condition * 100)
         local display_text = art_name .. " [" .. condition_pct .. "%]"
         
-        self.artifact_list_data[display_text] = {
+        -- Store data keyed by section for retrieval on click
+        self.artifact_list_data[entry.section] = {
             section = entry.section,
             condition = entry.condition,
             object = entry.object
         }
         
-        pcall(function() self.artifact_list:AddItem(display_text, entry.section) end)
+        -- Create custom list item
+        local item = artifact_list_item(self.artifact_list:GetItemHeight())
+        item.art_section = entry.section
+        item.txt:SetText(display_text)
+        
+        -- Add to list
+        self.artifact_list:AddExistingItem(item)
     end
 end
 
@@ -298,9 +321,9 @@ end
 function UIBerylDevice:OnArtifactClicked()
     local selected = self.artifact_list:GetSelectedItem()
     if not selected then return end
-    local display_text = selected:GetText()
-    if not display_text then return end
-    local data = self.artifact_list_data[display_text]
+    local section = selected.art_section
+    if not section then return end
+    local data = self.artifact_list_data[section]
     if not data then return end
     self:Close()
     if self.obj_id then
