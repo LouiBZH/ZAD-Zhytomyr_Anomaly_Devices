@@ -120,6 +120,21 @@ function UIBerylDevice:UpdateStatusText()
 end
 
 --------------------------------------------------------------------------------
+-- Custom list item class
+--------------------------------------------------------------------------------
+class "artifact_item" (CUIListBoxItem)
+
+function artifact_item:__init(height) super(height)
+    self.art_section = nil
+    self.txt = self:GetTextItem()
+    self.txt:SetFont(GetFontLetterica16Russian())
+    self.txt:SetEllipsis(true)
+end
+
+function artifact_item:__finalize()
+end
+
+--------------------------------------------------------------------------------
 -- Populate artifact list
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
@@ -135,7 +150,12 @@ function UIBerylDevice:PopulateArtifactList()
     if ok and result then artifacts = result end
     
     if #artifacts == 0 then
-        pcall(function() self.artifact_list:AddItem(game.translate_string("st_zad_beryl_no_artifacts"), "") end)
+        -- Add a disabled text item as placeholder
+        pcall(function() 
+            local item = artifact_item(self.artifact_list:GetItemHeight())
+            item.txt:SetText(game.translate_string("st_zad_beryl_no_artifacts"))
+            self.artifact_list:AddExistingItem(item)
+        end)
         return
     end
     
@@ -200,19 +220,13 @@ function UIBerylDevice:OnArtifactClicked()
     local selected = self.artifact_list:GetSelectedItem()
     if not selected then return end
     
-    local display_text = selected:GetText()
-    if not display_text or display_text == "" then return end
+    local section = selected.art_section
+    if not section or section == "" then return end
     
-    -- Find the entry by matching display text
-    for section, entry in pairs(self.artifact_data) do
-        local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
-        local condition_pct = math.floor(entry.condition * 100)
-        local expected = art_name .. " [" .. condition_pct .. "%]"
-        if expected == display_text then
-            self.selected_data = entry
-            pcall(function() self.btn_charge:Enable(true) end)
-            return
-        end
+    local entry = self.artifact_data[section]
+    if entry then
+        self.selected_data = entry
+        pcall(function() self.btn_charge:Enable(true) end)
     end
 end
 
