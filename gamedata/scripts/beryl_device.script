@@ -148,19 +148,20 @@ function get_anomaly_type_for_artifact(section)
         det_particles = ini:r_string_ex(section, "det_show_particles")
     end
 
-    if not det_particles then return "zone_mine_gravitational" end
+    if not det_particles then return "zone_mine_point" end
 
     det_particles = string.lower(det_particles)
 
+    -- Map artifact detection particles to existing DAO mine sections
     if string.find(det_particles, "electra") then
         return "zone_mine_electric"
-    elseif string.find(det_particles, "thermal") then
-        return "zone_mine_thermal"
-    elseif string.find(det_particles, "acidic") then
-        return "zone_mine_acidic"
+    elseif string.find(det_particles, "thermal") or string.find(det_particles, "fire") then
+        return "zone_mine_flash"
+    elseif string.find(det_particles, "acidic") or string.find(det_particles, "acid") then
+        return "zone_mine_green_dragon"
     end
 
-    return "zone_mine_electric"
+    return "zone_mine_point"
 end
 
 --------------------------------------------------------------------------------
@@ -272,7 +273,7 @@ function beryl_device_wrapper:spawn_anomaly_effects()
 
     local data = get_data(self.object:id())
     local primary_type = get_anomaly_type_for_artifact(data.artifact_section)
-    local grav_type = "zone_mine_gravitational"
+    local grav_type = "zone_mine_point"
 
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
