@@ -169,24 +169,6 @@ function UIBerylDevice:PopulateArtifactList()
         -- Empty list, nothing to show
     end
 end
-    
-    -- Sort by condition (most damaged first)
-    table.sort(artifacts, function(a, b)
-        return a.condition < b.condition
-    end)
-    
-    for _, entry in ipairs(artifacts) do
-        local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
-        local condition_pct = math.floor(entry.condition * 100)
-        local display_text = art_name .. " [" .. condition_pct .. "%]"
-        
-        -- Store data by section for retrieval on click
-        self.artifact_data[entry.section] = entry
-        
-        -- Add item to list
-        pcall(function() self.artifact_list:AddItem(display_text, entry.section) end)
-    end
-end
 
 --------------------------------------------------------------------------------
 -- Get a human-readable name for an artifact
