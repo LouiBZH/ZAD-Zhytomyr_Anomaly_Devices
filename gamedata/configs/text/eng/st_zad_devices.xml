@@ -66,6 +66,9 @@
 	<string id="st_zad_beryl_select_header">
 		<text>Select a perk artifact to recharge:</text>
 	</string>
+	<string id="st_zad_beryl_charge_artifact">
+		<text>Charge Artifact</text>
+	</string>
 	<string id="st_zad_beryl_ui_status_idle">
 		<text>Device ready. Select an artifact or pick up the device.</text>
 	</string>

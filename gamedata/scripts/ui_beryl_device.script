@@ -1,21 +1,23 @@
 --[[
     UI Beryl Device - Interaction dialog for Beryl Device
-    Follows the same pattern as ui_trading_computer.script:
-    - No wrapper lookup -- uses standalone functions from beryl_device.script
-    - State accessed via beryl_device.get_device_state() etc.
+    Single-mode layout matching ui_trading_computer.script:
+    - Artifact list shown directly on open
+    - "Charge Artifact" button at bottom
+    - "Close" button at bottom
+    - No pick up button (handled by game)
 ]]
 
 local GUI = nil  -- singleton
 
 --------------------------------------------------------------------------------
--- Main UI class for Beryl Device interaction
+-- Main UI class
 --------------------------------------------------------------------------------
 class "UIBerylDevice" (CUIScriptWnd)
 
 function UIBerylDevice:__init() super()
-    self.obj_id = nil           -- object ID of the placed Beryl device
-    self.ui_mode = "main"       -- "main" | "select"
-    self.artifact_list_data = {} -- stored artifact data for list items
+    self.obj_id = nil
+    self.selected_data = nil
+    self.artifact_data = {}  -- section -> {section, condition, object}
     
     self:InitControls()
     self:InitCallbacks()
@@ -30,7 +32,6 @@ end
 --------------------------------------------------------------------------------
 function UIBerylDevice:InitControls()
     self:SetWndRect(Frect():set(0, 0, 1024, 768))
-    self.wide = (device().width / device().height) > (1024 / 768 + 0.01)
     self:SetAutoDelete(true)
     
     local xml = CScriptXmlInit()
@@ -39,54 +40,27 @@ function UIBerylDevice:InitControls()
     self.back = xml:InitFrame("background", self)
     self.title_text = xml:InitStatic("title_text", self.back)
     self.status_text = xml:InitStatic("status_text", self.back)
+    self.list_frame = xml:InitFrame("list_frame", self.back)
+    self.artifact_list = xml:InitListBox("artifact_list", self.list_frame)
+    self:Register(self.artifact_list, "artifact_list")
     
-    self.btn_select_artifact = xml:Init3tButton("btn_select_artifact", self.back)
-    self:Register(self.btn_select_artifact, "btn_select_artifact")
-    
-    self.btn_pickup = xml:Init3tButton("btn_pickup", self.back)
-    self:Register(self.btn_pickup, "btn_pickup")
+    self.btn_charge = xml:Init3tButton("btn_charge", self.back)
+    self:Register(self.btn_charge, "btn_charge")
     
     self.btn_close = xml:Init3tButton("btn_close", self.back)
     self:Register(self.btn_close, "btn_close")
-    
-    self.artifact_list = xml:InitListBox("artifact_list", self.back)
-    self:Register(self.artifact_list, "artifact_list")
-    
-    self.btn_cancel_select = xml:Init3tButton("btn_cancel_select", self.back)
-    self:Register(self.btn_cancel_select, "btn_cancel_select")
-    
-    self.select_header = xml:InitStatic("select_header", self.back)
-end
-
---------------------------------------------------------------------------------
--- Safe UI element access helper
---------------------------------------------------------------------------------
-local function safe_show(el, state)
-    pcall(function() if el then el:Show(state) end end)
-end
-
-local function safe_enable(el, state)
-    pcall(function() if el then el:Enable(state) end end)
-end
-
-local function safe_set_text(el, text)
-    pcall(function() if el then el:SetText(text) end end)
 end
 
 --------------------------------------------------------------------------------
 -- Register button callbacks
 --------------------------------------------------------------------------------
 function UIBerylDevice:InitCallbacks()
-    self:AddCallback("btn_select_artifact", ui_events.BUTTON_CLICKED, 
-        self.OnSelectArtifact, self)
-    self:AddCallback("btn_pickup", ui_events.BUTTON_CLICKED, 
-        self.OnPickup, self)
+    self:AddCallback("btn_charge", ui_events.BUTTON_CLICKED, 
+        self.OnCharge, self)
     self:AddCallback("btn_close", ui_events.BUTTON_CLICKED, 
         self.OnClose, self)
     self:AddCallback("artifact_list", ui_events.LIST_ITEM_CLICKED, 
         self.OnArtifactClicked, self)
-    self:AddCallback("btn_cancel_select", ui_events.BUTTON_CLICKED, 
-        self.OnCancelSelect, self)
 end
 
 --------------------------------------------------------------------------------
@@ -97,11 +71,7 @@ function UIBerylDevice:OnKeyboard(dik, keyboard_action)
     if res == false then
         if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
             if dik == DIK_keys.DIK_ESCAPE then
-                if self.ui_mode == "select" then
-                    self:ShowMainMode()
-                else
-                    self:Close()
-                end
+                self:Close()
                 return true
             end
         end
@@ -110,46 +80,23 @@ function UIBerylDevice:OnKeyboard(dik, keyboard_action)
 end
 
 --------------------------------------------------------------------------------
--- Show the dialog for a specific Beryl device
+-- Show the dialog
 --------------------------------------------------------------------------------
 function UIBerylDevice:TestAndShow(obj_id)
     self.obj_id = obj_id
+    self.selected_data = nil
+    
+    -- Update status text
     self:UpdateStatusText()
-    self:ShowMainMode()
+    
+    -- Populate artifact list
+    self:PopulateArtifactList()
+    
+    -- Disable charge button until artifact selected
+    self.btn_charge:Enable(false)
+    
     self:ShowDialog(true)
     Register_UI("UIBerylDevice", "ui_beryl_device")
-end
-
---------------------------------------------------------------------------------
--- Switch to main mode
---------------------------------------------------------------------------------
-function UIBerylDevice:ShowMainMode()
-    self.ui_mode = "main"
-    safe_show(self.btn_select_artifact, true)
-    safe_show(self.btn_pickup, true)
-    safe_show(self.btn_close, true)
-    safe_show(self.title_text, true)
-    safe_show(self.status_text, true)
-    safe_show(self.artifact_list, false)
-    safe_show(self.btn_cancel_select, false)
-    safe_show(self.select_header, false)
-    self:UpdateMainModeButtons()
-end
-
---------------------------------------------------------------------------------
--- Switch to select mode
---------------------------------------------------------------------------------
-function UIBerylDevice:ShowSelectMode()
-    self.ui_mode = "select"
-    safe_show(self.btn_select_artifact, false)
-    safe_show(self.btn_pickup, false)
-    safe_show(self.btn_close, false)
-    safe_show(self.title_text, false)
-    safe_show(self.status_text, false)
-    safe_show(self.artifact_list, true)
-    safe_show(self.btn_cancel_select, true)
-    safe_show(self.select_header, true)
-    self:PopulateArtifactList()
 end
 
 --------------------------------------------------------------------------------
@@ -169,94 +116,42 @@ function UIBerylDevice:UpdateStatusText()
         text_id = "st_zad_beryl_ui_status_ready"
     end
     
-    safe_set_text(self.status_text, game.translate_string(text_id))
+    self.status_text:SetText(game.translate_string(text_id))
 end
 
 --------------------------------------------------------------------------------
--- Update button states based on device state
---------------------------------------------------------------------------------
-function UIBerylDevice:UpdateMainModeButtons()
-    if not self.obj_id then return end
-    
-    local state = beryl_device.get_device_state(self.obj_id)
-    
-    if state == "charging" then
-        safe_enable(self.btn_pickup, false)
-    else
-        safe_enable(self.btn_pickup, true)
-    end
-    if state == "idle" then
-        safe_enable(self.btn_select_artifact, true)
-    else
-        safe_enable(self.btn_select_artifact, false)
-    end
-end
-
---------------------------------------------------------------------------------
--- Custom list item class for artifact display
---------------------------------------------------------------------------------
-class "artifact_list_item" (CUIListBoxItem)
-
-function artifact_list_item:__init(height) super(height)
-    self.art_section = nil
-    self.txt = self:GetTextItem()
-    self.txt:SetFont(GetFontLetterica16Russian())
-    self.txt:SetEllipsis(true)
-end
-
-function artifact_list_item:__finalize()
-end
-
---------------------------------------------------------------------------------
--- Populate artifact list with perk artifacts from player inventory
+-- Populate artifact list
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
     self.artifact_list:RemoveAll()
-    self.artifact_list_data = {}
-    self.artifact_entries = {}
+    self.selected_data = nil
+    self.artifact_data = {}
     
     local actor = db.actor
     if not actor then return end
     
     local artifacts = beryl_device.find_perk_artifacts_in_inventory()
     
-    local filtered = {}
-    for _, entry in ipairs(artifacts) do
-        -- Include ALL artifacts for testing (condition filter will be added later)
-        table.insert(filtered, entry)
-    end
-    
-    if #filtered == 0 then
-        if actor then
-            actor:give_talk_message("st_zad_beryl_no_artifacts", nil, nil, nil, nil)
-        end
-        self:ShowMainMode()
+    if #artifacts == 0 then
+        self.artifact_list:AddItem(game.translate_string("st_zad_beryl_no_artifacts"), "")
         return
     end
     
-    table.sort(filtered, function(a, b)
+    -- Sort by condition (most damaged first)
+    table.sort(artifacts, function(a, b)
         return a.condition < b.condition
     end)
     
-    for idx, entry in ipairs(filtered) do
+    for _, entry in ipairs(artifacts) do
         local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
         local condition_pct = math.floor(entry.condition * 100)
         local display_text = art_name .. " [" .. condition_pct .. "%]"
         
-        -- Store data keyed by section for retrieval on click
-        self.artifact_list_data[entry.section] = {
-            section = entry.section,
-            condition = entry.condition,
-            object = entry.object
-        }
+        -- Store data by section for retrieval on click
+        self.artifact_data[entry.section] = entry
         
-        -- Create custom list item
-        local item = artifact_list_item(self.artifact_list:GetItemHeight())
-        item.art_section = entry.section
-        item.txt:SetText(display_text)
-        
-        -- Add to list
-        self.artifact_list:AddExistingItem(item)
+        -- Add item to list
+        self.artifact_list:AddItem(display_text, entry.section)
     end
 end
 
@@ -284,54 +179,39 @@ end
 --------------------------------------------------------------------------------
 -- Callbacks
 --------------------------------------------------------------------------------
-function UIBerylDevice:OnSelectArtifact()
-    if not self.obj_id then return end
-    if beryl_device.get_device_state(self.obj_id) ~= "idle" then
-        if db.actor then
-            db.actor:give_talk_message("st_zad_beryl_busy", nil, nil, nil, nil)
-        end
-        return
-    end
-    self:ShowSelectMode()
-end
 
-function UIBerylDevice:OnPickup()
-    if not self.obj_id then return end
-    if beryl_device.get_device_state(self.obj_id) == "charging" then
-        if db.actor then
-            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
-        end
-        return
-    end
+-- Charge button clicked
+function UIBerylDevice:OnCharge()
+    if not self.selected_data or not self.obj_id then return end
+    
     self:Close()
-    local obj = level.object_by_id(self.obj_id)
-    if obj then
-        local binder = obj:binded_object()
-        if binder and binder.wrapper and binder.wrapper.pickup then
-            binder.wrapper:pickup()
-        end
-    end
+    beryl_device.start_charging(self.obj_id, self.selected_data.section, self.selected_data.condition)
 end
 
+-- Close button clicked
 function UIBerylDevice:OnClose()
     self:Close()
 end
 
+-- An artifact was clicked in the list
 function UIBerylDevice:OnArtifactClicked()
     local selected = self.artifact_list:GetSelectedItem()
     if not selected then return end
-    local section = selected.art_section
-    if not section then return end
-    local data = self.artifact_list_data[section]
-    if not data then return end
-    self:Close()
-    if self.obj_id then
-        beryl_device.start_charging(self.obj_id, data.section, data.condition)
+    
+    local display_text = selected:GetText()
+    if not display_text or display_text == "" then return end
+    
+    -- Find the entry by matching display text
+    for section, entry in pairs(self.artifact_data) do
+        local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
+        local condition_pct = math.floor(entry.condition * 100)
+        local expected = art_name .. " [" .. condition_pct .. "%]"
+        if expected == display_text then
+            self.selected_data = entry
+            self.btn_charge:Enable(true)
+            return
+        end
     end
-end
-
-function UIBerylDevice:OnCancelSelect()
-    self:ShowMainMode()
 end
 
 --------------------------------------------------------------------------------
@@ -339,10 +219,7 @@ end
 --------------------------------------------------------------------------------
 function UIBerylDevice:Update()
     CUIScriptWnd.Update(self)
-    if self.ui_mode == "main" then
-        self:UpdateStatusText()
-        self:UpdateMainModeButtons()
-    end
+    self:UpdateStatusText()
 end
 
 --------------------------------------------------------------------------------
@@ -356,30 +233,23 @@ function UIBerylDevice:Close()
 end
 
 --------------------------------------------------------------------------------
--- Entry point: called from ui_on_interaction or from wrapper:use_callback
+-- Entry point: called from ui_on_interaction
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
-    local ok, err = pcall(function()
-        local state = beryl_device.get_device_state(obj_id)
-        if state == "ready" then
-            beryl_device.return_artifact_to_player(obj_id)
-            return
-        end
-        
-        if GUI == nil then
-            GUI = UIBerylDevice()
-        end
-        
-        if GUI:IsShown() then
-            GUI:Close()
-            GUI = UIBerylDevice()
-        end
-        
-        GUI:TestAndShow(obj_id)
-    end)
-    if not ok then
-        if log_utils then
-            log_utils.msg("[ZAD_BERYL] start_dialog error: " .. tostring(err))
-        end
+    local state = beryl_device.get_device_state(obj_id)
+    if state == "ready" then
+        beryl_device.return_artifact_to_player(obj_id)
+        return
     end
+    
+    if GUI == nil then
+        GUI = UIBerylDevice()
+    end
+    
+    if GUI:IsShown() then
+        GUI:Close()
+        GUI = UIBerylDevice()
+    end
+    
+    GUI:TestAndShow(obj_id)
 end
