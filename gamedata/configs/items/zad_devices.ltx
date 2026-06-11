@@ -1,7 +1,54 @@
 ;===============================================================================
-; ZAD Devices - Item config (root items dir for compatibility)
+; ZAD Devices - Item configurations
+;===============================================================================
+; Inventory items use class = II_ATTACH (HF furniture standard).
+; Place via right-click → use1_functor (hideout furniture placement).
+; Placed objects use script_binding for device logic.
 ;===============================================================================
 
+; Topaz Device (inventory item)
+[zad_device_topaz]:tch_junk
+$spawn									= "zad_device_topaz"
+class									= II_ATTACH
+kind									= i_tool
+visual									= dynamics\equipments\trade\radio.ogf
+inv_name								= st_zad_device_topaz_name
+inv_name_short							= st_zad_device_topaz_short
+description								= st_zad_device_topaz_desc
+inv_weight								= 1.0
+inv_grid_width							= 2
+inv_grid_height							= 2
+inv_grid_x								= 0
+inv_grid_y								= 0
+cost									= 5000
+icons_texture							= ui\placeable_devices
+use1_functor							= placeable_furniture.place_item
+use1_action_functor						= placeable_furniture.func_place_item
+placeable_type							= device
+placeable_section						= placeable_zad_device_topaz
+
+; Quartz Device (inventory item)
+[zad_device_quartz]:tch_junk
+$spawn									= "zad_device_quartz"
+class									= II_ATTACH
+kind									= i_tool
+visual									= dynamics\equipments\trade\radio.ogf
+inv_name								= st_zad_device_quartz_name
+inv_name_short							= st_zad_device_quartz_short
+description								= st_zad_device_quartz_desc
+inv_weight								= 1.0
+inv_grid_width							= 2
+inv_grid_height							= 2
+inv_grid_x								= 0
+inv_grid_y								= 0
+cost									= 5000
+icons_texture							= ui\placeable_devices
+use1_functor							= placeable_furniture.place_item
+use1_action_functor						= placeable_furniture.func_place_item
+placeable_type							= device
+placeable_section						= placeable_zad_device_quartz
+
+; Beryl Device - Perk Artifact Recharger (inventory item)
 [zad_device_beryl]:tch_junk
 $spawn									= "zad_device_beryl"
 class									= II_ATTACH
@@ -17,11 +64,28 @@ inv_grid_x								= 0
 inv_grid_y								= 0
 cost									= 5000
 icons_texture							= ui\placeable_devices
-
 use1_functor							= placeable_furniture.place_item
 use1_action_functor						= placeable_furniture.func_place_item
 placeable_type							= device
 placeable_section						= placeable_zad_device_beryl
+
+;===============================================================================
+; PLACED WORLD OBJECTS
+;===============================================================================
+
+[placeable_zad_device_topaz]:physic_object
+visual									= dynamics\equipments\trade\radio.ogf
+inv_weight								= 1.0
+script_binding							= bind_hf_base.init
+item_section							= zad_device_topaz
+bounding_box_size						= 0.25, 0.15, 0.20
+
+[placeable_zad_device_quartz]:physic_object
+visual									= dynamics\equipments\trade\radio.ogf
+inv_weight								= 1.0
+script_binding							= bind_hf_base.init
+item_section							= zad_device_quartz
+bounding_box_size						= 0.25, 0.15, 0.20
 
 [placeable_zad_device_beryl]:physic_object
 visual									= dynamics\equipments\trade\radio.ogf

@@ -48,6 +48,9 @@ function beryl_device_wrapper:__init(obj) super(obj)
     -- Charging sound handle
     self.charge_sound = nil
     
+    -- Interaction flag (set up once)
+    self.interact_setup = false
+    
     -- Register for lookup
     wrapper_registry[self.object:id()] = self
     
@@ -59,6 +62,18 @@ end
 -- Update called every frame (delta in seconds)
 --------------------------------------------------------------------------------
 function beryl_device_wrapper:update(delta)
+    -- Set up interaction callback once (engine may not auto-call use_callback)
+    if not self.interact_setup then
+        self.object:set_callback(callback.use_object, 
+            function(obj, binder)
+                if binder and binder.wrapper then
+                    binder.wrapper:use_callback()
+                end
+            end, 
+            self.binder)
+        self.interact_setup = true
+    end
+    
     if self.device_state == "charging" then
         self.charge_timer = self.charge_timer - delta
         
@@ -422,13 +437,21 @@ function beryl_device_wrapper:load(stpk)
 end
 
 --------------------------------------------------------------------------------
--- Net spawn
+-- Net spawn - freeze object and prevent physics movement
 --------------------------------------------------------------------------------
 function beryl_device_wrapper:net_spawn(se_abstract)
+    local ok = true
     if bind_hf_base.hf_binder_wrapper.net_spawn then
-        local ok = bind_hf_base.hf_binder_wrapper.net_spawn(self, se_abstract)
+        ok = bind_hf_base.hf_binder_wrapper.net_spawn(self, se_abstract)
         if ok == false then return false end
     end
+    
+    -- Freeze the physics shell so object stays in place
+    local phys = self.object:get_physics_shell()
+    if phys then
+        phys:freeze()
+    end
+    
     return true
 end
 
