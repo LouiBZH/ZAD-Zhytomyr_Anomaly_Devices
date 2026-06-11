@@ -62,15 +62,15 @@ end
 -- Safe UI element access helper
 --------------------------------------------------------------------------------
 local function safe_show(el, state)
-    if el then el:Show(state) end
+    pcall(function() if el then el:Show(state) end end)
 end
 
 local function safe_enable(el, state)
-    if el then el:Enable(state) end
+    pcall(function() if el then el:Enable(state) end end)
 end
 
 local function safe_set_text(el, text)
-    if el then el:SetText(text) end
+    pcall(function() if el then el:SetText(text) end end)
 end
 
 --------------------------------------------------------------------------------
@@ -337,20 +337,27 @@ end
 -- Entry point: called from ui_on_interaction or from wrapper:use_callback
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
-    local state = beryl_device.get_device_state(obj_id)
-    if state == "ready" then
-        beryl_device.return_artifact_to_player(obj_id)
-        return
+    local ok, err = pcall(function()
+        local state = beryl_device.get_device_state(obj_id)
+        if state == "ready" then
+            beryl_device.return_artifact_to_player(obj_id)
+            return
+        end
+        
+        if GUI == nil then
+            GUI = UIBerylDevice()
+        end
+        
+        if GUI:IsShown() then
+            GUI:Close()
+            GUI = UIBerylDevice()
+        end
+        
+        GUI:TestAndShow(obj_id)
+    end)
+    if not ok then
+        if log_utils then
+            log_utils.msg("[ZAD_BERYL] start_dialog error: " .. tostring(err))
+        end
     end
-    
-    if GUI == nil then
-        GUI = UIBerylDevice()
-    end
-    
-    if GUI:IsShown() then
-        GUI:Close()
-        GUI = UIBerylDevice()
-    end
-    
-    GUI:TestAndShow(obj_id)
 end
