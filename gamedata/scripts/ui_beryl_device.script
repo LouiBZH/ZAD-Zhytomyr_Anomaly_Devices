@@ -37,25 +37,25 @@ function UIBerylDevice:InitControls()
     xml:ParseFile("ui_beryl_device_dialog")
     
     self.back = xml:InitFrame("background", self)
-    self.title_text = xml:InitStatic("title_text", self)
-    self.status_text = xml:InitStatic("status_text", self)
+    self.title_text = xml:InitStatic("title_text", self.back)
+    self.status_text = xml:InitStatic("status_text", self.back)
     
-    self.btn_select_artifact = xml:Init3tButton("btn_select_artifact", self)
+    self.btn_select_artifact = xml:Init3tButton("btn_select_artifact", self.back)
     self:Register(self.btn_select_artifact, "btn_select_artifact")
     
-    self.btn_pickup = xml:Init3tButton("btn_pickup", self)
+    self.btn_pickup = xml:Init3tButton("btn_pickup", self.back)
     self:Register(self.btn_pickup, "btn_pickup")
     
-    self.btn_close = xml:Init3tButton("btn_close", self)
+    self.btn_close = xml:Init3tButton("btn_close", self.back)
     self:Register(self.btn_close, "btn_close")
     
-    self.artifact_list = xml:InitListBox("artifact_list", self)
+    self.artifact_list = xml:InitListBox("artifact_list", self.back)
     self:Register(self.artifact_list, "artifact_list")
     
-    self.btn_cancel_select = xml:Init3tButton("btn_cancel_select", self)
+    self.btn_cancel_select = xml:Init3tButton("btn_cancel_select", self.back)
     self:Register(self.btn_cancel_select, "btn_cancel_select")
     
-    self.select_header = xml:InitStatic("select_header", self)
+    self.select_header = xml:InitStatic("select_header", self.back)
 end
 
 --------------------------------------------------------------------------------
