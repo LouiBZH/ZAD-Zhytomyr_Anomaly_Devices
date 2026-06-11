@@ -61,15 +61,6 @@ function beryl_device_wrapper:__init(obj) super(obj)
     
     -- Tip text
     self.object:set_tip_text(game.translate_string("st_interact"))
-    
-    -- Set up use callback directly (engine may not auto-call binder:use_callback)
-    self.object:set_callback(callback.use_object, 
-        function(obj, binder)
-            if binder and binder.wrapper then
-                binder.wrapper:use_callback()
-            end
-        end, 
-        self.binder)
 end
 
 --------------------------------------------------------------------------------
@@ -94,23 +85,6 @@ function beryl_device_wrapper:update(delta)
             self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
         end
     end
-end
-
---------------------------------------------------------------------------------
--- Called when player interacts with the device (F key)
--- Opens the UI interaction dialog
---------------------------------------------------------------------------------
-function beryl_device_wrapper:use_callback()
-    if not db.actor then return end
-    
-    -- If device is ready (artifact recharged), directly return it to player
-    if self.device_state == "ready" then
-        self:return_artifact_to_inventory()
-        return
-    end
-    
-    -- Open the UI interaction dialog for all other states
-    ui_beryl_device.start_dialog(self.object:id())
 end
 
 --------------------------------------------------------------------------------
