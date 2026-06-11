@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<string_table>
+	<!-- Topaz Device -->
+	<string id="st_zad_device_topaz_name">
+		<text>Topaz Device</text>
+	</string>
+	<string id="st_zad_device_topaz_short">
+		<text>Topaz</text>
+	</string>
+	<string id="st_zad_device_topaz_desc">
+		<text>An experimental anomaly study device. Use with caution.</text>
+	</string>
+
+	<!-- Quartz Device -->
+	<string id="st_zad_device_quartz_name">
+		<text>Quartz Device</text>
+	</string>
+	<string id="st_zad_device_quartz_short">
+		<text>Quartz</text>
+	</string>
+	<string id="st_zad_device_quartz_desc">
+		<text>An experimental anomaly study device. Use with caution.</text>
+	</string>
+
+	<!-- Beryl Device -->
+	<string id="st_zad_device_beryl_name">
+		<text>Beryl Device</text>
+	</string>
+	<string id="st_zad_device_beryl_short">
+		<text>Beryl</text>
+	</string>
+	<string id="st_zad_device_beryl_desc">
+		<text>An experimental anomaly study device designed to recharge perk artifacts. Select a perk artifact from your inventory and the device will restore it to full condition over 1 minute.</text>
+	</string>
+
+	<!-- Beryl Device UI Messages -->
+	<string id="st_zad_beryl_no_artifacts">
+		<text>No perk artifacts found in inventory.</text>
+	</string>
+	<string id="st_zad_beryl_charging">
+		<text>Beryl Device is charging. Stand clear!</text>
+	</string>
+	<string id="st_zad_beryl_complete">
+		<text>Recharge complete. Anomaly field dissipating.</text>
+	</string>
+	<string id="st_zad_beryl_cooldown">
+		<text>Beryl Device is on cooldown. Please wait.</text>
+	</string>
+	<string id="st_zad_beryl_retrieve">
+		<text>Interact to retrieve recharged artifact.</text>
+	</string>
+	<string id="st_zad_beryl_retrieved">
+		<text>Artifact recharged successfully.</text>
+	</string>
+	<string id="st_zad_beryl_busy">
+		<text>Device is busy processing an artifact.</text>
+	</string>
+</string_table>

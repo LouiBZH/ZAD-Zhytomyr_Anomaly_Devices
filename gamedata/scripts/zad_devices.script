@@ -1,0 +1,83 @@
+--[[
+    ZAD Devices - Main Initialization Script
+    Handles mod registration and device registry for Topaz, Quartz, and Beryl devices.
+    Devices use Hideout Furniture (HF) placement system.
+]]
+
+-- Device section constants
+local DEVICE_TOPAZ = "zad_device_topaz"
+local DEVICE_QUARTZ = "zad_device_quartz"
+local DEVICE_BERYL = "zad_device_beryl"
+
+-- Device registry
+local device_registry = {}
+local registry_initialized = false
+
+--------------------------------------------------------------------------------
+-- Initialize device registry
+--------------------------------------------------------------------------------
+function init_device_registry()
+    if registry_initialized then return end
+    
+    device_registry[DEVICE_TOPAZ] = {
+        name = "Topaz",
+        placed_section = "placeable_zad_device_topaz",
+        active = false
+    }
+    device_registry[DEVICE_QUARTZ] = {
+        name = "Quartz",
+        placed_section = "placeable_zad_device_quartz",
+        active = false
+    }
+    device_registry[DEVICE_BERYL] = {
+        name = "Beryl",
+        placed_section = "placeable_zad_device_beryl",
+        active = false,
+        wrapper_class = "beryl_device_wrapper"
+    }
+    
+    registry_initialized = true
+end
+
+--------------------------------------------------------------------------------
+-- Get device info by section name
+--------------------------------------------------------------------------------
+function get_device_info(section)
+    return device_registry[section]
+end
+
+--------------------------------------------------------------------------------
+-- Check if an object is a ZAD device
+--------------------------------------------------------------------------------
+function is_zad_device(obj)
+    if not obj then return false end
+    local section = obj:section()
+    return section == DEVICE_TOPAZ or
+           section == DEVICE_QUARTZ or
+           section == DEVICE_BERYL
+end
+
+--------------------------------------------------------------------------------
+-- Check if a section is a placed ZAD device
+--------------------------------------------------------------------------------
+function is_placed_zad_device(obj)
+    if not obj then return false end
+    local section = obj:section()
+    return section == "placeable_zad_device_topaz" or
+           section == "placeable_zad_device_quartz" or
+           section == "placeable_zad_device_beryl"
+end
+
+--------------------------------------------------------------------------------
+-- Anomaly mod entry points
+--------------------------------------------------------------------------------
+function on_game_load()
+    init_device_registry()
+end
+
+function on_mod_start()
+    init_device_registry()
+    if log_utils then
+        log_utils.msg("[ZAD] Zhytomyr Anomaly Devices loaded")
+    end
+end

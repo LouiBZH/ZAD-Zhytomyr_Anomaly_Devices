@@ -1,0 +1,476 @@
+--[[
+    Beryl Device - Perk Artifact Recharger
+    Extends bind_hf_base.hf_binder_wrapper for HF placement system
+    
+    Functionality:
+    1. Player interacts with placed Beryl device → auto-selects a perk artifact
+    2. Artifact removed from inventory, device charges for 60 seconds
+    3. During charging: dynamic anomaly effects spawn around device + sound
+    4. After 60s: anomalies disappear, artifact condition set to 100%
+    5. Device enters cooldown based on original artifact condition
+    6. After cooldown: player can retrieve the recharged artifact
+    
+    State machine: idle → charging (60s) → cooldown → ready → idle
+]]
+
+-- Registry for quick wrapper lookup
+local wrapper_registry = setmetatable({}, {__mode = "v"})
+
+--------------------------------------------------------------------------------
+-- Init function for script_binding in LTX
+--------------------------------------------------------------------------------
+function init(obj)
+    obj:bind_object(beryl_device_wrapper(obj).binder)
+end
+
+--------------------------------------------------------------------------------
+-- Class "beryl_device_wrapper" extends HF base wrapper
+--------------------------------------------------------------------------------
+class "beryl_device_wrapper" (bind_hf_base.hf_binder_wrapper)
+
+-- Constructor
+function beryl_device_wrapper:__init(obj) super(obj)
+    -- State machine
+    self.device_state = "idle"       -- idle | charging | cooldown | ready
+    self.charging_time = 60          -- 1 minute charging duration (seconds)
+    self.charge_timer = 0
+    self.cooldown_timer = 0
+    
+    -- Artifact data (section name of the artifact being processed)
+    self.artifact_section = nil
+    self.original_condition = 1.0
+    
+    -- Anomaly configuration
+    self.anomaly_radius = 20         -- meters
+    self.anomaly_count = 5           -- number of anomaly effects
+    self.anomaly_objects = {}        -- spawned anomaly particle/sound objects
+    
+    -- Charging sound handle
+    self.charge_sound = nil
+    
+    -- Register for lookup
+    wrapper_registry[self.object:id()] = self
+    
+    -- Tip text
+    self.object:set_tip_text(game.translate_string("st_interact"))
+end
+
+--------------------------------------------------------------------------------
+-- Update called every frame (delta in seconds)
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:update(delta)
+    if self.device_state == "charging" then
+        self.charge_timer = self.charge_timer - delta
+        
+        -- Pulse anomaly effects periodically for dynamic feel
+        if math.floor(self.charge_timer * 2) % 10 == 0 then
+            self:pulse_anomaly_effects()
+        end
+        
+        if self.charge_timer <= 0 then
+            self:finish_charging()
+        end
+        
+    elseif self.device_state == "cooldown" then
+        self.cooldown_timer = self.cooldown_timer - delta
+        
+        if self.cooldown_timer <= 0 then
+            self.device_state = "ready"
+            self:play_sound("anomaly\\zad_beryl_ready")
+            self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Called when player interacts with the device (F key)
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:use_callback()
+    if self.device_state == "idle" then
+        self:auto_select_artifact()
+    elseif self.device_state == "ready" then
+        self:return_artifact_to_inventory()
+    elseif self.device_state == "cooldown" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_cooldown", nil, nil, nil, nil)
+        end
+    elseif self.device_state == "charging" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Auto-select the most damaged perk artifact from player inventory
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:auto_select_artifact()
+    local actor = db.actor
+    if not actor then return end
+    
+    local perk_artifacts = self:find_perk_artifacts_in_inventory(actor)
+    
+    if #perk_artifacts == 0 then
+        actor:give_talk_message("st_zad_beryl_no_artifacts", nil, nil, nil, nil)
+        return
+    end
+    
+    -- Find the artifact with lowest condition (most damaged)
+    local worst_section = perk_artifacts[1].section
+    local worst_condition = 1.0
+    
+    for _, entry in ipairs(perk_artifacts) do
+        local cond = entry.condition
+        if cond < worst_condition then
+            worst_condition = cond
+            worst_section = entry.section
+        end
+    end
+    
+    self:select_and_charge(worst_section, worst_condition, actor)
+end
+
+--------------------------------------------------------------------------------
+-- Find all perk artifacts in actor's inventory
+ --------------------------------------------------------------------------------
+function beryl_device_wrapper:find_perk_artifacts_in_inventory(actor)
+    local result = {}
+    
+    if not actor or not actor:inventory_size then
+        return result
+    end
+    
+    for i = 0, actor:inventory_size() - 1 do
+        local item = actor:inventory_item(i)
+        if item and self:is_perk_artifact(item) then
+            table.insert(result, {
+                object = item,
+                section = item:section(),
+                condition = item:condition()
+            })
+        end
+    end
+    
+    return result
+end
+
+--------------------------------------------------------------------------------
+-- Check if an item is a perk artifact based on section naming
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:is_perk_artifact(item)
+    if not item then return false end
+    
+    local section = item:section()
+    if not section then return false end
+    
+    -- Perk artifacts from themrdemonized/STALKER-Anomaly-Perk-Based-Artefacts
+    return string.find(section, "perk_artefact") ~= nil or
+           string.find(section, "af_perk") ~= nil or
+           string.find(section, "perk_artifact") ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- Select artifact and start charging sequence
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:select_and_charge(section, condition, actor)
+    if not section or not actor then return end
+    
+    self.artifact_section = section
+    self.original_condition = condition or 1.0
+    
+    -- Remove the artifact from inventory
+    for i = 0, actor:inventory_size() - 1 do
+        local item = actor:inventory_item(i)
+        if item and item:section() == section then
+            if condition == nil or math.abs(item:condition() - condition) < 0.01 then
+                actor:remove_item(item)
+                break
+            end
+        end
+    end
+    
+    -- Start charging
+    self:start_charging()
+end
+
+--------------------------------------------------------------------------------
+-- Start the 60-second charging process
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:start_charging()
+    self.device_state = "charging"
+    self.charge_timer = self.charging_time
+    
+    -- Activation sound
+    self:play_sound("anomaly\\zad_beryl_activate")
+    
+    -- Spawn anomaly visual effects
+    self:spawn_anomaly_effects()
+    
+    -- Update interaction hint
+    self.object:set_tip_text(game.translate_string("st_zad_beryl_charging"))
+    
+    if log_utils then
+        log_utils.msg("[ZAD_BERYL] Charging started for: " .. tostring(self.artifact_section))
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Spawn anomaly particle and sound effects around the device
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:spawn_anomaly_effects()
+    local device_pos = self.object:position()
+    if not device_pos then return end
+    
+    -- Looping charge sound
+    self.charge_sound = sound_object("anomaly\\zad_beryl_charge_loop")
+    if self.charge_sound then
+        self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.s3d)
+        self.charge_sound.volume = 1.0
+    end
+    
+    -- Spawn particles in a ring around the device
+    for i = 1, self.anomaly_count do
+        local angle = (i / self.anomaly_count) * 2 * math.pi
+        local distance = self.anomaly_radius * (0.6 + math.random() * 0.4)
+        local height_offset = math.random() * 2.0 - 1.0
+        
+        local pos = vector():set(
+            device_pos.x + math.cos(angle) * distance,
+            device_pos.y + height_offset,
+            device_pos.z + math.sin(angle) * distance
+        )
+        
+        -- Particle effect
+        local particle = particle_object("zad_beryl_anomaly_" .. i)
+        if particle then
+            particle:play_at_pos("anomaly\\zad_beryl_field", pos)
+            table.insert(self.anomaly_objects, {
+                type = "particle",
+                object = particle,
+                index = i,
+                base_pos = vector():set(pos.x, pos.y, pos.z),
+                angle = angle,
+                distance = distance
+            })
+        end
+        
+        -- Ambient sound at each anomaly position
+        local snd = sound_object("anomaly\\zad_beryl_ambient_" .. i)
+        if snd then
+            snd:play_at_pos(self.object, pos, 0, sound_object.s3d)
+            table.insert(self.anomaly_objects, {
+                type = "sound",
+                object = snd,
+                index = i
+            })
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Animate anomaly effects during charging
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:pulse_anomaly_effects()
+    local device_pos = self.object:position()
+    if not device_pos then return end
+    
+    for _, anomaly in ipairs(self.anomaly_objects) do
+        if anomaly.type == "particle" then
+            -- Slightly randomize position for a dynamic field effect
+            local a = anomaly.angle + (math.random() - 0.5) * 0.3
+            local d = anomaly.distance * (0.9 + math.random() * 0.2)
+            local h = (math.random() * 3.0) - 1.5
+            
+            local new_pos = vector():set(
+                device_pos.x + math.cos(a) * d,
+                device_pos.y + h,
+                device_pos.z + math.sin(a) * d
+            )
+            
+            anomaly.object:move_to(new_pos)
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Finish charging - set artifact condition to 100%
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:finish_charging()
+    -- Stop charge sound
+    if self.charge_sound then
+        self.charge_sound:stop()
+        self.charge_sound = nil
+    end
+    
+    -- Remove anomaly effects
+    self:remove_anomaly_effects()
+    
+    -- Completion sound
+    self:play_sound("anomaly\\zad_beryl_complete")
+    
+    -- Calculate cooldown: lower original condition = longer cooldown
+    -- Range: 30-150 seconds (for condition 1.0→0.0)
+    self.cooldown_timer = math.ceil((1.0 - self.original_condition) * 120) + 30
+    
+    self.device_state = "cooldown"
+    self.object:set_tip_text(game.translate_string("st_zad_beryl_cooldown"))
+    
+    if log_utils then
+        log_utils.msg("[ZAD_BERYL] Charge complete, cooldown: " .. tostring(self.cooldown_timer) .. "s")
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Remove all spawned anomaly effects
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:remove_anomaly_effects()
+    for _, anomaly in ipairs(self.anomaly_objects) do
+        pcall(function() anomaly.object:stop() end)
+    end
+    self.anomaly_objects = {}
+end
+
+--------------------------------------------------------------------------------
+-- Return the recharged artifact to the player
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:return_artifact_to_inventory()
+    if not self.artifact_section or not db.actor then return end
+    
+    -- Give a new artifact at 100% condition
+    alife_create_item(self.artifact_section, db.actor, {cond = 1.0})
+    
+    -- Retrieve sound
+    self:play_sound("anomaly\\zad_beryl_retrieve")
+    
+    -- Reset to idle
+    local section = self.artifact_section
+    self.artifact_section = nil
+    self.original_condition = 1.0
+    self.device_state = "idle"
+    self.object:set_tip_text(game.translate_string("st_interact"))
+    
+    if db.actor then
+        db.actor:give_talk_message("st_zad_beryl_retrieved", nil, nil, nil, nil)
+    end
+    
+    if log_utils then
+        log_utils.msg("[ZAD_BERYL] Artifact returned: " .. tostring(section))
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Helper: play a 3D sound at the device's position
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:play_sound(path)
+    local snd = sound_object(path)
+    if snd then
+        local pos = self.object:position()
+        if pos then
+            snd:play_at_pos(self.object, pos, 0, sound_object.s3d)
+        end
+    end
+    return snd
+end
+
+--------------------------------------------------------------------------------
+-- Save state to packet for game persistence
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:save(stpk)
+    -- Call parent
+    if bind_hf_base.hf_binder_wrapper.save then
+        bind_hf_base.hf_binder_wrapper.save(self, stpk)
+    end
+    
+    -- Write our state
+    stpk:w_stringZ(self.device_state or "idle")
+    stpk:w_float(self.charge_timer or 0)
+    stpk:w_float(self.cooldown_timer or 0)
+    
+    -- Artifact section (write empty string if nil)
+    stpk:w_stringZ(self.artifact_section or "")
+    stpk:w_float(self.original_condition or 1.0)
+end
+
+--------------------------------------------------------------------------------
+-- Load state from packet
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:load(stpk)
+    -- Call parent
+    if bind_hf_base.hf_binder_wrapper.load then
+        bind_hf_base.hf_binder_wrapper.load(self, stpk)
+    end
+    
+    -- Read our state
+    self.device_state = stpk:r_stringZ()
+    self.charge_timer = stpk:r_float()
+    self.cooldown_timer = stpk:r_float()
+    
+    -- Artifact section (empty string means nil)
+    local art_section = stpk:r_stringZ()
+    self.artifact_section = (art_section ~= "") and art_section or nil
+    self.original_condition = stpk:r_float()
+    
+    -- Resume appropriate state
+    if self.device_state == "charging" then
+        self:spawn_anomaly_effects()
+        self.object:set_tip_text(game.translate_string("st_zad_beryl_charging"))
+    elseif self.device_state == "ready" then
+        self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
+    elseif self.device_state == "cooldown" then
+        self.object:set_tip_text(game.translate_string("st_zad_beryl_cooldown"))
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Net spawn
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:net_spawn(se_abstract)
+    if bind_hf_base.hf_binder_wrapper.net_spawn then
+        local ok = bind_hf_base.hf_binder_wrapper.net_spawn(self, se_abstract)
+        if ok == false then return false end
+    end
+    return true
+end
+
+--------------------------------------------------------------------------------
+-- Net destroy - clean up active effects
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:net_destroy()
+    if self.device_state == "charging" then
+        self:remove_anomaly_effects()
+    end
+    
+    -- Unregister
+    wrapper_registry[self.object:id()] = nil
+    
+    if bind_hf_base.hf_binder_wrapper.net_destroy then
+        bind_hf_base.hf_binder_wrapper.net_destroy(self)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Pickup - prevent pickup while charging, clean up state
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:pickup()
+    -- Cannot pick up while charging
+    if self.device_state == "charging" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+        end
+        return false
+    end
+    
+    -- Clean up any active effects
+    if self.device_state == "charging" then
+        self:remove_anomaly_effects()
+    end
+    
+    -- Clear sound handle
+    if self.charge_sound then
+        self.charge_sound:stop()
+        self.charge_sound = nil
+    end
+    
+    -- Call parent pickup
+    return bind_hf_base.hf_binder_wrapper.pickup(self)
+end
