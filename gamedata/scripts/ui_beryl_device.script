@@ -145,27 +145,25 @@ function UIBerylDevice:PopulateArtifactList()
     local actor = db.actor
     if not actor then return end
     
-    -- DEBUG: count ALL inventory items first
+    -- DEBUG: count ALL inventory items
     local total_items = 0
+    local iterate_worked = false
     pcall(function()
         actor:iterate_inventory(function(npc, item)
             if item then total_items = total_items + 1 end
         end, actor)
+        iterate_worked = true
     end)
     
     local artifacts = {}
     local ok, result = pcall(beryl_device.find_perk_artifacts_in_inventory)
     if ok and result then artifacts = result end
     
-    -- Debug talk message
-    pcall(function()
-        db.actor:give_talk_message("Items: " .. tostring(total_items) .. " | Junk: " .. tostring(#artifacts), nil, nil, nil, nil)
-    end)
-    
     if #artifacts == 0 then
+        local debug_msg = "iterate=" .. tostring(iterate_worked) .. " total=" .. tostring(total_items)
         pcall(function() 
             local item = artifact_item(self.artifact_list:GetItemHeight())
-            item.txt:SetText("No junk artifacts (" .. tostring(total_items) .. " total items)")
+            item.txt:SetText(debug_msg)
             self.artifact_list:AddExistingItem(item)
         end)
         return
