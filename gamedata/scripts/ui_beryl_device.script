@@ -93,10 +93,10 @@ function UIBerylDevice:TestAndShow(obj_id)
     self:PopulateArtifactList()
     
     -- Disable charge button until artifact selected
-    self.btn_charge:Enable(false)
+    pcall(function() self.btn_charge:Enable(false) end)
     
-    self:ShowDialog(true)
-    Register_UI("UIBerylDevice", "ui_beryl_device")
+    pcall(function() self:ShowDialog(true) end)
+    pcall(function() Register_UI("UIBerylDevice", "ui_beryl_device") end)
 end
 
 --------------------------------------------------------------------------------
@@ -116,24 +116,26 @@ function UIBerylDevice:UpdateStatusText()
         text_id = "st_zad_beryl_ui_status_ready"
     end
     
-    self.status_text:SetText(game.translate_string(text_id))
+    pcall(function() self.status_text:SetText(game.translate_string(text_id)) end)
 end
 
 --------------------------------------------------------------------------------
 -- Populate artifact list
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
-    self.artifact_list:RemoveAll()
+    pcall(function() self.artifact_list:RemoveAll() end)
     self.selected_data = nil
     self.artifact_data = {}
     
     local actor = db.actor
     if not actor then return end
     
-    local artifacts = beryl_device.find_perk_artifacts_in_inventory()
+    local artifacts = {}
+    local ok, result = pcall(beryl_device.find_perk_artifacts_in_inventory)
+    if ok and result then artifacts = result end
     
     if #artifacts == 0 then
-        self.artifact_list:AddItem(game.translate_string("st_zad_beryl_no_artifacts"), "")
+        pcall(function() self.artifact_list:AddItem(game.translate_string("st_zad_beryl_no_artifacts"), "") end)
         return
     end
     
@@ -151,7 +153,7 @@ function UIBerylDevice:PopulateArtifactList()
         self.artifact_data[entry.section] = entry
         
         -- Add item to list
-        self.artifact_list:AddItem(display_text, entry.section)
+        pcall(function() self.artifact_list:AddItem(display_text, entry.section) end)
     end
 end
 
@@ -208,7 +210,7 @@ function UIBerylDevice:OnArtifactClicked()
         local expected = art_name .. " [" .. condition_pct .. "%]"
         if expected == display_text then
             self.selected_data = entry
-            self.btn_charge:Enable(true)
+            pcall(function() self.btn_charge:Enable(true) end)
             return
         end
     end
@@ -226,10 +228,12 @@ end
 -- Close and cleanup
 --------------------------------------------------------------------------------
 function UIBerylDevice:Close()
-    if self:IsShown() then
-        self:HideDialog()
-    end
-    Unregister_UI("UIBerylDevice")
+    pcall(function()
+        if self:IsShown() then
+            self:HideDialog()
+        end
+        Unregister_UI("UIBerylDevice")
+    end)
 end
 
 --------------------------------------------------------------------------------
