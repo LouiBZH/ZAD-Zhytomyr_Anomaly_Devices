@@ -222,9 +222,8 @@ function UIBerylDevice:PopulateArtifactList()
     
     local filtered = {}
     for _, entry in ipairs(artifacts) do
-        if entry.condition < 1.0 then
-            table.insert(filtered, entry)
-        end
+        -- Include ALL artifacts for testing (condition filter will be added later)
+        table.insert(filtered, entry)
     end
     
     if #filtered == 0 then
