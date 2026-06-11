@@ -42,25 +42,34 @@ end
 function find_perk_artifacts_in_inventory()
     local actor = get_actor()
     if not actor then return {} end
-    
-    local ok_size, size = pcall(function() return actor:inventory_size() end)
-    if not ok_size or not size then return {} end
 
     local result = {}
-    for i = 0, size - 1 do
-        local ok_item, item = pcall(function() return actor:inventory_item(i) end)
-        if ok_item and item and is_perk_artifact(item) then
+    
+    -- Use iterate_inventory as shown in the modding book / perk artifacts mod
+    pcall(function()
+        actor:iterate_inventory(function(npc, item)
+            if not item then return end
             local ok_sec, section = pcall(function() return item:section() end)
+            if not ok_sec or not section then return end
+            
+            -- Check if this is a junk artifact (kind = i_arty_junk)
+            local ok_kind, kind = pcall(function()
+                local ini = system_ini()
+                return ini and ini:r_string_ex(section, "kind")
+            end)
+            if not ok_kind or kind ~= "i_arty_junk" then return end
+            
+            -- Get condition
             local ok_cond, condition = pcall(function() return item:condition() end)
-            if ok_sec and section then
-                table.insert(result, {
-                    object = item,
-                    section = section,
-                    condition = (ok_cond and condition) or 1.0
-                })
-            end
-        end
-    end
+            
+            table.insert(result, {
+                object = item,
+                section = section,
+                condition = (ok_cond and condition) or 1.0
+            })
+        end, actor)
+    end)
+    
     return result
 end
 
