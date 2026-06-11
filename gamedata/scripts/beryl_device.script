@@ -77,14 +77,19 @@ function start_charging(obj_id, section, condition)
     local actor = get_actor()
     if not section or not actor then return end
 
-    for i = 0, actor:inventory_size() - 1 do
-        local item = actor:inventory_item(i)
-        if item and item:section() == section then
-            if condition == nil or math.abs(item:condition() - condition) < 0.01 then
-                actor:remove_item(item)
-                break
-            end
-        end
+    -- Find the artifact first, then remove it (iterate_inventory breaks if you remove during iteration)
+    local found_item = nil
+    actor:iterate_inventory(function(npc, item)
+        if found_item then return end
+        if not item then return end
+        local ok, sec = pcall(function() return item:section() end)
+        if not ok or sec ~= section then return end
+        if condition ~= nil and math.abs(item:condition() - condition) >= 0.01 then return end
+        found_item = item
+    end, actor)
+    
+    if found_item then
+        actor:remove_item(found_item)
     end
 
     set_data(obj_id, {
