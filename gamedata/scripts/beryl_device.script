@@ -30,23 +30,35 @@ end
 
 function is_perk_artifact(item)
     if not item then return false end
-    local kind = item:get_entity_kind()
-    return kind ~= nil and kind == "i_arty_junk"
+    local ok, kind = pcall(function()
+        local ini = system_ini()
+        if not ini then return nil end
+        return ini:r_string_ex(item:section(), "kind")
+    end)
+    if not ok or not kind then return false end
+    return kind == "i_arty_junk"
 end
 
 function find_perk_artifacts_in_inventory()
     local actor = get_actor()
-    if not actor or not actor.inventory_size then return {} end
+    if not actor then return {} end
+    
+    local ok_size, size = pcall(function() return actor:inventory_size() end)
+    if not ok_size or not size then return {} end
 
     local result = {}
-    for i = 0, actor:inventory_size() - 1 do
-        local item = actor:inventory_item(i)
-        if item and is_perk_artifact(item) then
-            table.insert(result, {
-                object = item,
-                section = item:section(),
-                condition = item:condition()
-            })
+    for i = 0, size - 1 do
+        local ok_item, item = pcall(function() return actor:inventory_item(i) end)
+        if ok_item and item and is_perk_artifact(item) then
+            local ok_sec, section = pcall(function() return item:section() end)
+            local ok_cond, condition = pcall(function() return item:condition() end)
+            if ok_sec and section then
+                table.insert(result, {
+                    object = item,
+                    section = section,
+                    condition = (ok_cond and condition) or 1.0
+                })
+            end
         end
     end
     return result
