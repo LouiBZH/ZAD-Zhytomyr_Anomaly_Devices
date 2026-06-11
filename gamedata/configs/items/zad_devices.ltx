@@ -1,22 +1,22 @@
 ;===============================================================================
 ; ZAD Devices - Item configurations
 ;===============================================================================
-; Uses E_DEVICE class (engine-native CCustomDevice) for inventory items.
-; HF placeable sections are provided for integration with hideout furniture mod.
+; Inventory items use class = II_ATTACH (same as HF furniture) for tools category.
+; Placed world objects use script_binding for device logic (requires HF mod).
 ;===============================================================================
 
 ;===============================================================================
-; INVENTORY ITEMS (carried in backpack)
+; INVENTORY ITEMS (carried in backpack, placeable via HF)
 ;===============================================================================
 
 ; Topaz Device
-[zad_device_topaz]:identity_immunities
+[zad_device_topaz]
 GroupControlSection	= spawn_section
 discovery_dependency	=
-$spawn					= "devices\zad_device_topaz"
-class					= E_DEVICE
+$spawn					= "tools\zad_device_topaz"
+class					= II_ATTACH
 cform					= skeleton
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_name				= st_zad_device_topaz_name
 inv_name_short			= st_zad_device_topaz_short
 description				= st_zad_device_topaz_desc
@@ -29,18 +29,16 @@ cost					= 5000
 condition_shot_count	= 0
 animation_slot			= 1
 repairs_mode			= 1
-
-; --- HF placement fields (requires hideout furniture mod) ---
 placeable_section		= placeable_zad_device_topaz
 
 ; Quartz Device
-[zad_device_quartz]:identity_immunities
+[zad_device_quartz]
 GroupControlSection	= spawn_section
 discovery_dependency	=
-$spawn					= "devices\zad_device_quartz"
-class					= E_DEVICE
+$spawn					= "tools\zad_device_quartz"
+class					= II_ATTACH
 cform					= skeleton
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_name				= st_zad_device_quartz_name
 inv_name_short			= st_zad_device_quartz_short
 description				= st_zad_device_quartz_desc
@@ -53,18 +51,16 @@ cost					= 5000
 condition_shot_count	= 0
 animation_slot			= 1
 repairs_mode			= 1
-
-; --- HF placement fields (requires hideout furniture mod) ---
 placeable_section		= placeable_zad_device_quartz
 
 ; Beryl Device - Perk Artifact Recharger
-[zad_device_beryl]:identity_immunities
+[zad_device_beryl]
 GroupControlSection	= spawn_section
 discovery_dependency	=
-$spawn					= "devices\zad_device_beryl"
-class					= E_DEVICE
+$spawn					= "tools\zad_device_beryl"
+class					= II_ATTACH
 cform					= skeleton
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_name				= st_zad_device_beryl_name
 inv_name_short			= st_zad_device_beryl_short
 description				= st_zad_device_beryl_desc
@@ -77,33 +73,31 @@ cost					= 5000
 condition_shot_count	= 0
 animation_slot			= 1
 repairs_mode			= 1
-
-; --- HF placement fields (requires hideout furniture mod) ---
 placeable_section		= placeable_zad_device_beryl
 
 ;===============================================================================
 ; PLACED WORLD OBJECTS (requires hideout furniture mod)
 ;===============================================================================
 
-; Topaz Device (placed) - Placeholder, basic world object
+; Topaz Device (placed) - Placeholder
 [placeable_zad_device_topaz]:physic_object
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_weight				= 1.0
 script_binding			= bind_hf_base.init
 item_section			= zad_device_topaz
 bounding_box_size		= 0.25, 0.15, 0.20
 
-; Quartz Device (placed) - Placeholder, basic world object
+; Quartz Device (placed) - Placeholder
 [placeable_zad_device_quartz]:physic_object
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_weight				= 1.0
 script_binding			= bind_hf_base.init
 item_section			= zad_device_quartz
 bounding_box_size		= 0.25, 0.15, 0.20
 
-; Beryl Device - Perk Artifact Recharger (Placed in World)
+; Beryl Device (placed) - Perk Artifact Recharger
 [placeable_zad_device_beryl]:physic_object
-visual					= equipments\devices\radio\radio.ogf
+visual					= dynamics\equipments\trade\radio.ogf
 inv_weight				= 1.0
 script_binding			= beryl_device.init
 item_section			= zad_device_beryl
