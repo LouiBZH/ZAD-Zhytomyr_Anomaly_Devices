@@ -5,69 +5,69 @@
 
 ; Topaz Device (inventory item)
 [zad_device_topaz]:tch_junk
-$spawn									= "zad\tools\zad_device_topaz"
-class									= II_ATTACH
-kind									= i_tool
-visual									= dynamics\placeable\light_altar.ogf
-inv_name								= st_zad_device_topaz_name
-inv_name_short							= st_zad_device_topaz_short
-description								= st_zad_device_topaz_desc
-inv_weight								= 1.0
-inv_grid_width							= 2
-inv_grid_height							= 2
-inv_grid_x								= 0
-inv_grid_y								= 0
-cost									= 5000
-icons_texture							= ui\placeable_devices
+$spawn                                    = "zad\tools\zad_device_topaz"
+class                                    = II_ATTACH
+kind                                    = i_tool
+visual                                    = dynamics\placeable\light_altar.ogf
+inv_name                                = st_zad_device_topaz_name
+inv_name_short                            = st_zad_device_topaz_short
+description                                = st_zad_device_topaz_desc
+inv_weight                                = 1.0
+inv_grid_width                            = 2
+inv_grid_height                            = 2
+inv_grid_x                                = 0
+inv_grid_y                                = 0
+cost                                    = 5000
+icons_texture                            = ui\placeable_devices
 
-use1_functor							= placeable_furniture.place_item
-use1_action_functor						= placeable_furniture.func_place_item
-placeable_type							= prop
-placeable_section						= placeable_zad_device_topaz
+use1_functor                            = placeable_furniture.place_item
+use1_action_functor                        = placeable_furniture.func_place_item
+placeable_type                            = prop
+placeable_section                        = placeable_zad_device_topaz
 
 ; Quartz Device (inventory item)
 [zad_device_quartz]:tch_junk
-$spawn									= "zad\tools\zad_device_quartz"
-class									= II_ATTACH
-kind									= i_tool
-visual									= dynamics\placeable\light_altar.ogf
-inv_name								= st_zad_device_quartz_name
-inv_name_short							= st_zad_device_quartz_short
-description								= st_zad_device_quartz_desc
-inv_weight								= 1.0
-inv_grid_width							= 2
-inv_grid_height							= 2
-inv_grid_x								= 0
-inv_grid_y								= 0
-cost									= 5000
-icons_texture							= ui\placeable_devices
+$spawn                                    = "zad\tools\zad_device_quartz"
+class                                    = II_ATTACH
+kind                                    = i_tool
+visual                                    = dynamics\placeable\light_altar.ogf
+inv_name                                = st_zad_device_quartz_name
+inv_name_short                            = st_zad_device_quartz_short
+description                                = st_zad_device_quartz_desc
+inv_weight                                = 1.0
+inv_grid_width                            = 2
+inv_grid_height                            = 2
+inv_grid_x                                = 0
+inv_grid_y                                = 0
+cost                                    = 5000
+icons_texture                            = ui\placeable_devices
 
-use1_functor							= placeable_furniture.place_item
-use1_action_functor						= placeable_furniture.func_place_item
-placeable_type							= prop
-placeable_section						= placeable_zad_device_quartz
+use1_functor                            = placeable_furniture.place_item
+use1_action_functor                        = placeable_furniture.func_place_item
+placeable_type                            = prop
+placeable_section                        = placeable_zad_device_quartz
 
 ; Beryl Device - Perk Artifact Recharger (inventory item)
 [zad_device_beryl]:tch_junk
-$spawn									= "zad\tools\zad_device_beryl"
-class									= II_ATTACH
-kind									= i_tool
-visual									= dynamics\placeable\light_altar.ogf
-inv_name								= st_zad_device_beryl_name
-inv_name_short							= st_zad_device_beryl_short
-description								= st_zad_device_beryl_desc
-inv_weight								= 1.0
-inv_grid_width							= 2
-inv_grid_height							= 2
-inv_grid_x								= 0
-inv_grid_y								= 0
-cost									= 5000
-icons_texture							= ui\placeable_devices
+$spawn                                    = "zad\tools\zad_device_beryl"
+class                                    = II_ATTACH
+kind                                    = i_tool
+visual                                    = dynamics\placeable\light_altar.ogf
+inv_name                                = st_zad_device_beryl_name
+inv_name_short                            = st_zad_device_beryl_short
+description                                = st_zad_device_beryl_desc
+inv_weight                                = 1.0
+inv_grid_width                            = 2
+inv_grid_height                            = 2
+inv_grid_x                                = 0
+inv_grid_y                                = 0
+cost                                    = 5000
+icons_texture                            = ui\placeable_devices
 
-use1_functor							= placeable_furniture.place_item
-use1_action_functor						= placeable_furniture.func_place_item
-placeable_type							= device
-placeable_section						= placeable_zad_device_beryl
+use1_functor                            = placeable_furniture.place_item
+use1_action_functor                     = placeable_furniture.func_place_item
+placeable_type                          = prop
+placeable_section                       = placeable_zad_device_beryl
 
 ;===============================================================================
 ; PLACED WORLD OBJECTS
@@ -75,29 +75,29 @@ placeable_section						= placeable_zad_device_beryl
 
 ; Topaz Device (placed)
 [placeable_zad_device_topaz]:physic_object
-visual									= dynamics\placeable\light_altar.ogf
-inv_weight								= 1.0
-script_binding							= bind_hf_base.init
-item_section							= zad_device_topaz
-bounding_box_size						= 0.446506, 0.593599, 1.03146
-bounding_box_origin						= 0, 0.515729, 0.073609
+visual                                    = dynamics\placeable\light_altar.ogf
+inv_weight                                = 1.0
+script_binding                            = bind_hf_base.init
+item_section                            = zad_device_topaz
+bounding_box_size                        = 0.446506, 0.593599, 1.03146
+bounding_box_origin                        = 0, 0.515729, 0.073609
 
 ; Quartz Device (placed)
 [placeable_zad_device_quartz]:physic_object
-visual									= dynamics\placeable\light_altar.ogf
-inv_weight								= 1.0
-script_binding							= bind_hf_base.init
-item_section							= zad_device_quartz
-bounding_box_size						= 0.446506, 0.593599, 1.03146
-bounding_box_origin						= 0, 0.515729, 0.073609
+visual                                    = dynamics\placeable\light_altar.ogf
+inv_weight                                = 1.0
+script_binding                            = bind_hf_base.init
+item_section                            = zad_device_quartz
+bounding_box_size                        = 0.446506, 0.593599, 1.03146
+bounding_box_origin                        = 0, 0.515729, 0.073609
 
 ; Beryl Device (placed) - Perk Artifact Recharger
 [placeable_zad_device_beryl]:physic_object
-visual									= dynamics\placeable\light_altar.ogf
-placeable_type							= prop
-script_binding							= beryl_device.init
-ui_on_interaction						= ui_beryl_device.start_dialog
-ui_on_simple_interaction				= ui_beryl_device.start_dialog
-item_section							= zad_device_beryl
-bounding_box_size						= 0.446506, 0.593599, 1.03146
-bounding_box_origin						= 0, 0.515729, 0.073609
+visual                                    = dynamics\placeable\light_altar.ogf
+placeable_type                            = prop
+script_binding                            = beryl_device.init
+ui_on_interaction                        = ui_beryl_device.start_dialog
+ui_on_simple_interaction                = ui_beryl_device.start_dialog
+item_section                            = zad_device_beryl
+bounding_box_size                        = 0.446506, 0.593599, 1.03146
+bounding_box_origin                        = 0, 0.515729, 0.073609
