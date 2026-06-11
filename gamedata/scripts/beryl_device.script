@@ -250,73 +250,17 @@ end
 
 function beryl_device_wrapper:start_charging_effects()
     self:play_sound("anomaly\\zad_beryl_activate")
-    self:spawn_anomaly_effects()
     pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
 end
 
 function beryl_device_wrapper:spawn_anomaly_effects()
-    local device_pos = self.object:position()
-    if not device_pos then return end
-
-    local alife = alife()
-    if not alife then return end
-
-    local ok_snd, snd = pcall(function() return sound_object("anomaly\\zad_beryl_charge_loop") end)
-    if ok_snd and snd then
-        self.charge_sound = snd
-        pcall(function()
-            self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.s3d)
-            self.charge_sound.volume = 1.0
-        end)
-    end
-
-    local data = get_data(self.object:id())
-    local primary_type = get_anomaly_type_for_artifact(data.artifact_section)
-    local grav_type = "zone_mine_gravitational"
-
-    local lvid = level.vertex_id(device_pos)
-    local gvid = self.object:game_vertex_id()
-
-    for i = 1, self.anomaly_count do
-        local angle = (i / self.anomaly_count) * 2 * math.pi
-        local dist = self.anomaly_radius * (0.6 + math.random() * 0.4)
-
-        local pos = vector():set(
-            device_pos.x + math.cos(angle) * dist,
-            device_pos.y + 0.5,
-            device_pos.z + math.sin(angle) * dist
-        )
-
-        local spawn_lvid = level.vertex_id(pos)
-        if spawn_lvid == 65535 then spawn_lvid = lvid end
-
-        local anom_type = (i % 2 == 0) and primary_type or grav_type
-
-        -- Only spawn if the section exists (check with SYS_GetParam)
-        if SYS_GetParam(0, anom_type, "class", "") ~= "" then
-            local se_obj = alife:create(anom_type, pos, spawn_lvid, gvid)
-            if se_obj then
-                table.insert(self.anomaly_ids, se_obj.id)
-            end
-        end
-    end
+    -- Anomaly spawning requires Dynamic Anomalies Overhaul (zone_mine_* sections)
+    -- Skipped when DAO is not installed
 end
 
 function beryl_device_wrapper:stop_charging_effects()
-    local alife = alife()
-    if alife then
-        for _, id in ipairs(self.anomaly_ids) do
-            local se_obj = alife:object(id)
-            if se_obj then
-                se_obj:disable_anomaly()
-                alife:release(se_obj, true)
-            end
-        end
-    end
-    self.anomaly_ids = {}
-
     if self.charge_sound then
-        self.charge_sound:stop()
+        pcall(function() self.charge_sound:stop() end)
         self.charge_sound = nil
     end
 end
