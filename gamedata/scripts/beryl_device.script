@@ -316,14 +316,14 @@ function beryl_device_wrapper:stop_charging_effects()
 end
 
 function beryl_device_wrapper:play_sound(path)
-    local snd = sound_object(path)
-    if snd then
+    local ok, snd = pcall(function() return sound_object(path) end)
+    if ok and snd then
         local pos = self.object:position()
         if pos then
-            snd:play_at_pos(self.object, pos, 0, sound_object.s3d)
+            pcall(function() snd:play_at_pos(self.object, pos, 0, sound_object.s3d) end)
         end
     end
-    return snd
+    return ok and snd or nil
 end
 
 function beryl_device_wrapper:net_spawn(se_abstract)
