@@ -151,29 +151,13 @@ function init(obj)
 end
 
 --------------------------------------------------------------------------------
--- Custom binder: overrides use_callback so engine calls our wrapper handler
---------------------------------------------------------------------------------
-class "beryl_binder" (bind_hf_base.base_binder)
-
-function beryl_binder:__init(obj) super(obj)
-end
-
-function beryl_binder:use_callback()
-    if self.wrapper and self.wrapper.use_callback then
-        self.wrapper:use_callback()
-    end
-end
-
---------------------------------------------------------------------------------
 -- Wrapper: handles update loop, physics, anomaly effects
+-- Uses standard base_binder (via super(obj)) -- no custom binder,
+-- interaction is handled entirely through ui_on_interaction LTX property.
 --------------------------------------------------------------------------------
 class "beryl_device_wrapper" (bind_hf_base.hf_binder_wrapper)
 
-function beryl_device_wrapper:__init(obj)
-    self.binder = beryl_binder(obj)
-    self.binder.wrapper = self
-    self.object = obj
-    self.is_frozen = false
+function beryl_device_wrapper:__init(obj) super(obj)
 
     self.anomaly_radius = 20
     self.anomaly_count = 10
@@ -240,20 +224,6 @@ function beryl_device_wrapper:update(delta)
         else
             set_data(id, { cooldown_timer = data.cooldown_timer })
         end
-    end
-end
-
-function beryl_device_wrapper:use_callback()
-    if not db.actor then return end
-
-    local id = self.object:id()
-    local data = get_data(id)
-    local state = data.device_state or "idle"
-
-    if state == "ready" then
-        return_artifact_to_player(id)
-    else
-        ui_beryl_device.start_dialog(id)
     end
 end
 
