@@ -16,7 +16,7 @@
         <texture>ui_inGame2_hint_wnd_main_window</texture>
     </list_frame>
 
-    <artifact_list x="28" y="78" width="404" height="204" item_height="22" can_select="1" always_show_scroll="0">
+    <artifact_list x="28" y="78" width="404" height="204" item_height="22" can_select="1" always_show_scroll="1">
         <font font="letterica16"/>
     </artifact_list>
 

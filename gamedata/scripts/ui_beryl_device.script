@@ -174,17 +174,19 @@ end
 -- Get a human-readable name for an artifact
 --------------------------------------------------------------------------------
 function UIBerylDevice:GetArtifactDisplayName(obj, section)
-    if not obj then return section or "Unknown" end
-    
-    local name = obj:name()
-    if name and name ~= "" then
-        return name
-    end
-    
+    -- Use the section's localized name first (artifact display names)
     if section then
         local item_name = game.translate_string(section)
-        if item_name and item_name ~= section then
+        if item_name and item_name ~= "" and item_name ~= section then
             return item_name
+        end
+    end
+    
+    -- Fallback to object name
+    if obj then
+        local name = obj:name()
+        if name and name ~= "" then
+            return name
         end
     end
     
