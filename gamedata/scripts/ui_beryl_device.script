@@ -59,6 +59,21 @@ function UIBerylDevice:InitControls()
 end
 
 --------------------------------------------------------------------------------
+-- Safe UI element access helper
+--------------------------------------------------------------------------------
+local function safe_show(el, state)
+    if el then el:Show(state) end
+end
+
+local function safe_enable(el, state)
+    if el then el:Enable(state) end
+end
+
+local function safe_set_text(el, text)
+    if el then el:SetText(text) end
+end
+
+--------------------------------------------------------------------------------
 -- Register button callbacks
 --------------------------------------------------------------------------------
 function UIBerylDevice:InitCallbacks()
@@ -110,17 +125,14 @@ end
 --------------------------------------------------------------------------------
 function UIBerylDevice:ShowMainMode()
     self.ui_mode = "main"
-    
-    self.btn_select_artifact:Show(true)
-    self.btn_pickup:Show(true)
-    self.btn_close:Show(true)
-    self.title_text:Show(true)
-    self.status_text:Show(true)
-    
-    self.artifact_list:Show(false)
-    self.btn_cancel_select:Show(false)
-    self.select_header:Show(false)
-    
+    safe_show(self.btn_select_artifact, true)
+    safe_show(self.btn_pickup, true)
+    safe_show(self.btn_close, true)
+    safe_show(self.title_text, true)
+    safe_show(self.status_text, true)
+    safe_show(self.artifact_list, false)
+    safe_show(self.btn_cancel_select, false)
+    safe_show(self.select_header, false)
     self:UpdateMainModeButtons()
 end
 
@@ -129,17 +141,14 @@ end
 --------------------------------------------------------------------------------
 function UIBerylDevice:ShowSelectMode()
     self.ui_mode = "select"
-    
-    self.btn_select_artifact:Show(false)
-    self.btn_pickup:Show(false)
-    self.btn_close:Show(false)
-    self.title_text:Show(false)
-    self.status_text:Show(false)
-    
-    self.artifact_list:Show(true)
-    self.btn_cancel_select:Show(true)
-    self.select_header:Show(true)
-    
+    safe_show(self.btn_select_artifact, false)
+    safe_show(self.btn_pickup, false)
+    safe_show(self.btn_close, false)
+    safe_show(self.title_text, false)
+    safe_show(self.status_text, false)
+    safe_show(self.artifact_list, true)
+    safe_show(self.btn_cancel_select, true)
+    safe_show(self.select_header, true)
     self:PopulateArtifactList()
 end
 
@@ -160,7 +169,7 @@ function UIBerylDevice:UpdateStatusText()
         text_id = "st_zad_beryl_ui_status_ready"
     end
     
-    self.status_text:SetText(game.translate_string(text_id))
+    safe_set_text(self.status_text, game.translate_string(text_id))
 end
 
 --------------------------------------------------------------------------------
@@ -172,15 +181,14 @@ function UIBerylDevice:UpdateMainModeButtons()
     local state = beryl_device.get_device_state(self.obj_id)
     
     if state == "charging" then
-        self.btn_pickup:Enable(false)
+        safe_enable(self.btn_pickup, false)
     else
-        self.btn_pickup:Enable(true)
+        safe_enable(self.btn_pickup, true)
     end
-    
     if state == "idle" then
-        self.btn_select_artifact:Enable(true)
+        safe_enable(self.btn_select_artifact, true)
     else
-        self.btn_select_artifact:Enable(false)
+        safe_enable(self.btn_select_artifact, false)
     end
 end
 
@@ -226,7 +234,7 @@ function UIBerylDevice:PopulateArtifactList()
             object = entry.object
         }
         
-        self.artifact_list:AddItem(display_text, entry.section)
+        pcall(function() self.artifact_list:AddItem(display_text, entry.section) end)
     end
 end
 

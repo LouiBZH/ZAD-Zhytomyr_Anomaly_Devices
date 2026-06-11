@@ -180,6 +180,7 @@ function beryl_device_wrapper:__init(obj) super(obj)
 end
 
 function beryl_device_wrapper:update(delta)
+    if not self.object then return end
     local id = self.object:id()
     local data = get_data(id)
     local state = data.device_state or "idle"
@@ -306,6 +307,7 @@ function beryl_device_wrapper:play_sound(path)
 end
 
 function beryl_device_wrapper:net_spawn(se_abstract)
+    if not self.object then return false end
     local ok = true
     if bind_hf_base.hf_binder_wrapper.net_spawn then
         ok = bind_hf_base.hf_binder_wrapper.net_spawn(self, se_abstract)
@@ -319,6 +321,7 @@ function beryl_device_wrapper:net_spawn(se_abstract)
 end
 
 function beryl_device_wrapper:net_destroy()
+    if not self.object then return end
     self:stop_charging_effects()
 
     if bind_hf_base.hf_binder_wrapper.net_destroy then
