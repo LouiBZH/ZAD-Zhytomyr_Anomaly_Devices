@@ -1,0 +1,31 @@
+;===============================================================================
+; ZAD Devices - Item config (root items dir for compatibility)
+;===============================================================================
+
+[zad_device_beryl]:tch_junk
+$spawn									= "zad_device_beryl"
+class									= II_ATTACH
+kind									= i_tool
+visual									= dynamics\equipments\trade\radio.ogf
+inv_name								= st_zad_device_beryl_name
+inv_name_short							= st_zad_device_beryl_short
+description								= st_zad_device_beryl_desc
+inv_weight								= 1.0
+inv_grid_width							= 2
+inv_grid_height							= 2
+inv_grid_x								= 0
+inv_grid_y								= 0
+cost									= 5000
+icons_texture							= ui\placeable_devices
+
+use1_functor							= placeable_furniture.place_item
+use1_action_functor						= placeable_furniture.func_place_item
+placeable_type							= device
+placeable_section						= placeable_zad_device_beryl
+
+[placeable_zad_device_beryl]:physic_object
+visual									= dynamics\equipments\trade\radio.ogf
+inv_weight								= 1.0
+script_binding							= beryl_device.init
+item_section							= zad_device_beryl
+bounding_box_size						= 0.25, 0.15, 0.20
