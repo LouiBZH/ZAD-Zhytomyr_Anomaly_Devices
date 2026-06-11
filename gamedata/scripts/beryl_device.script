@@ -32,12 +32,36 @@ function init(obj)
 end
 
 --------------------------------------------------------------------------------
+-- Custom binder that overrides use_callback to route to the wrapper
+-- This is necessary because base_binder (from HF) doesn't override use_callback,
+-- so the engine's default object_binder::use_callback() is a no-op for physic_object
+--------------------------------------------------------------------------------
+class "beryl_binder" (bind_hf_base.base_binder)
+
+function beryl_binder:__init(obj) super(obj)
+end
+
+function beryl_binder:use_callback()
+    if self.wrapper and self.wrapper.use_callback then
+        self.wrapper:use_callback()
+    end
+end
+
+--------------------------------------------------------------------------------
 -- Class "beryl_device_wrapper" extends HF base wrapper
 --------------------------------------------------------------------------------
 class "beryl_device_wrapper" (bind_hf_base.hf_binder_wrapper)
 
 -- Constructor
-function beryl_device_wrapper:__init(obj) super(obj)
+function beryl_device_wrapper:__init(obj)
+    -- Manually set up the wrapper without calling super(obj),
+    -- because super(obj) creates a base_binder which doesn't route use_callback.
+    -- We create our own binder that overrides use_callback.
+    self.binder = beryl_binder(obj)
+    self.binder.wrapper = self
+    self.object = obj
+    self.is_frozen = false
+    
     -- State machine
     self.device_state = "idle"       -- idle | charging | cooldown | ready
     self.charging_time = 60          -- 1 minute charging duration (seconds)
