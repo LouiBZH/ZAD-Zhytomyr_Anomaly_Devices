@@ -17,13 +17,13 @@ The Beryl device recharges perk artifacts ([themrdemonized/STALKER-Anomaly-Perk-
 ### How It Works
 
 1. **Place** the Beryl device in the world using HF's placement system
-2. **Interact** (F key) → device scans your inventory for perk artifacts
-3. Auto-selects the **most damaged** perk artifact
+2. **Interact** (F key) → opens the device UI
+3. Click **"Select Perk Artifact"** → choose an artifact from the list
 4. Artifact is removed from inventory, device **charges for 60 seconds**:
-   - Anomaly particle effects spawn in a 20m radius
+   - Real anomaly objects spawn in a 20m ring around the device (DAO-based)
    - Looping charge sound plays
-   - Anomaly points pulse and shift dynamically
-5. **After 60s**: anomalies dissipate, artifact condition = 100%
+   - Anomalies pulse visually every 5 seconds
+5. **After 60s**: anomalies are released, artifact condition = 100%
 6. **Device cooldown**: depends on original condition (30-150s)
 7. **Interact again**: retrieve the recharged artifact at full condition
 
@@ -58,6 +58,12 @@ idle → charging (60s) → cooldown (30-150s) → ready → idle
 - **Placeholder Model**: `equipments\devices\radio\radio.ogf` (from hideout furniture)
 - **Script System**: HF `bind_hf_base.hf_binder_wrapper` extension
 - **Language Support**: English (expandable)
+- Some references :
+   - Engine documentation : https://github.com/themrdemonized/xray-monolith
+   - Anomaly modding book : https://github.com/TheParaziT/anomaly-modding-book
+   - X-Ray engine documentation in russian : https://xray-engine.org/index.php?title=%D0%97%D0%B0%D0%B3%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F_%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D0%B0
+   - Stalker GAMMA github : https://github.com/Grokitach/Stalker_GAMMA
+   - Dynamic Anomalies Overhaul : https://github.com/themrdemonized/Dynamic-Anomalies-Overhaul
 
 ## File Structure
 

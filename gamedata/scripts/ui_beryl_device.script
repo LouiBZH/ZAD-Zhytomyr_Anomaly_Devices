@@ -1,0 +1,417 @@
+--[[
+    UI Beryl Device - Interaction dialog for Beryl Device
+    Provides a window with two modes:
+    1. Main mode: "Select Perk Artifact" + "Pick Up" + "Close" buttons
+    2. Select mode: List of perk artifacts to choose from
+    
+    Follows the same pattern as HF workshop UI (ui_furniture_workshop.script)
+]]
+
+local GUI = nil  -- singleton
+
+--------------------------------------------------------------------------------
+-- Get the beryl device wrapper from an object ID
+-- Uses the public accessor from beryl_device.script
+--------------------------------------------------------------------------------
+local function get_beryl_wrapper(obj_id)
+    return beryl_device.get_wrapper_by_id(obj_id)
+end
+
+--------------------------------------------------------------------------------
+-- Main UI class for Beryl Device interaction
+--------------------------------------------------------------------------------
+class "UIBerylDevice" (CUIScriptWnd)
+
+function UIBerylDevice:__init() super()
+    self.obj_id = nil           -- object ID of the placed Beryl device
+    self.wrapper = nil          -- cached wrapper reference
+    self.ui_mode = "main"       -- "main" | "select"
+    self.artifact_list_data = {} -- stored artifact data for list items
+    
+    self:InitControls()
+    self:InitCallbacks()
+end
+
+function UIBerylDevice:__finalize()
+    GUI = nil
+end
+
+--------------------------------------------------------------------------------
+-- Initialize all UI controls from XML
+--------------------------------------------------------------------------------
+function UIBerylDevice:InitControls()
+    self:SetWndRect(Frect():set(0, 0, 1024, 768))
+    self.wide = (device().width / device().height) > (1024 / 768 + 0.01)
+    self:SetAutoDelete(true)
+    
+    local xml = CScriptXmlInit()
+    xml:ParseFile("ui_beryl_device_dialog")
+    
+    -- Background
+    self.back = xml:InitFrame("background", self)
+    
+    -- Title and status
+    self.title_text = xml:InitStatic("title_text", self)
+    self.status_text = xml:InitStatic("status_text", self)
+    
+    -- Main mode buttons
+    self.btn_select_artifact = xml:Init3tButton("btn_select_artifact", self)
+    self:Register(self.btn_select_artifact, "btn_select_artifact")
+    
+    self.btn_pickup = xml:Init3tButton("btn_pickup", self)
+    self:Register(self.btn_pickup, "btn_pickup")
+    
+    self.btn_close = xml:Init3tButton("btn_close", self)
+    self:Register(self.btn_close, "btn_close")
+    
+    -- Selection mode controls
+    self.artifact_list = xml:InitListWnd("artifact_list", self)
+    self:Register(self.artifact_list, "artifact_list")
+    
+    self.btn_cancel_select = xml:Init3tButton("btn_cancel_select", self)
+    self:Register(self.btn_cancel_select, "btn_cancel_select")
+    
+    self.select_header = xml:InitStatic("select_header", self)
+end
+
+--------------------------------------------------------------------------------
+-- Register button callbacks
+--------------------------------------------------------------------------------
+function UIBerylDevice:InitCallbacks()
+    self:AddCallback("btn_select_artifact", ui_events.BUTTON_CLICKED, 
+        self.OnSelectArtifact, self)
+    self:AddCallback("btn_pickup", ui_events.BUTTON_CLICKED, 
+        self.OnPickup, self)
+    self:AddCallback("btn_close", ui_events.BUTTON_CLICKED, 
+        self.OnClose, self)
+    self:AddCallback("artifact_list", ui_events.LIST_ITEM_CLICKED, 
+        self.OnArtifactClicked, self)
+    self:AddCallback("btn_cancel_select", ui_events.BUTTON_CLICKED, 
+        self.OnCancelSelect, self)
+end
+
+--------------------------------------------------------------------------------
+-- Keyboard handler (ESC to close)
+--------------------------------------------------------------------------------
+function UIBerylDevice:OnKeyboard(dik, keyboard_action)
+    local res = CUIScriptWnd.OnKeyboard(self, dik, keyboard_action)
+    if res == false then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            if dik == DIK_keys.DIK_ESCAPE then
+                if self.ui_mode == "select" then
+                    self:ShowMainMode()
+                else
+                    self:Close()
+                end
+                return true
+            end
+        end
+    end
+    return res
+end
+
+--------------------------------------------------------------------------------
+-- Show the dialog for a specific Beryl device
+--------------------------------------------------------------------------------
+function UIBerylDevice:TestAndShow(obj_id)
+    self.obj_id = obj_id
+    self.wrapper = get_beryl_wrapper(obj_id)
+    
+    if not self.wrapper then
+        -- Wrapper not found, close immediately
+        self:Close()
+        return
+    end
+    
+    -- Update status based on current device state
+    self:UpdateStatusText()
+    
+    -- Show in main mode by default
+    self:ShowMainMode()
+    
+    self:ShowDialog(true)
+    Register_UI("UIBerylDevice", "ui_beryl_device")
+end
+
+--------------------------------------------------------------------------------
+-- Switch to main mode (buttons visible, list hidden)
+--------------------------------------------------------------------------------
+function UIBerylDevice:ShowMainMode()
+    self.ui_mode = "main"
+    
+    -- Show main controls
+    self.btn_select_artifact:Show(true)
+    self.btn_pickup:Show(true)
+    self.btn_close:Show(true)
+    self.title_text:Show(true)
+    self.status_text:Show(true)
+    
+    -- Hide selection controls
+    self.artifact_list:Show(false)
+    self.btn_cancel_select:Show(false)
+    self.select_header:Show(false)
+    
+    -- Update button states based on device state
+    self:UpdateMainModeButtons()
+end
+
+--------------------------------------------------------------------------------
+-- Switch to select mode (list visible, buttons hidden)
+--------------------------------------------------------------------------------
+function UIBerylDevice:ShowSelectMode()
+    self.ui_mode = "select"
+    
+    -- Hide main controls
+    self.btn_select_artifact:Show(false)
+    self.btn_pickup:Show(false)
+    self.btn_close:Show(false)
+    self.title_text:Show(false)
+    self.status_text:Show(false)
+    
+    -- Show selection controls
+    self.artifact_list:Show(true)
+    self.btn_cancel_select:Show(true)
+    self.select_header:Show(true)
+    
+    -- Populate the list with artifacts
+    self:PopulateArtifactList()
+end
+
+--------------------------------------------------------------------------------
+-- Update status text based on current device state
+--------------------------------------------------------------------------------
+function UIBerylDevice:UpdateStatusText()
+    if not self.wrapper then return end
+    
+    local state = self.wrapper.device_state or "idle"
+    local text_id = "st_zad_beryl_ui_status_idle"
+    
+    if state == "charging" then
+        text_id = "st_zad_beryl_ui_status_charging"
+    elseif state == "cooldown" then
+        text_id = "st_zad_beryl_ui_status_cooldown"
+    elseif state == "ready" then
+        text_id = "st_zad_beryl_ui_status_ready"
+    end
+    
+    self.status_text:SetTextST(text_id)
+end
+
+--------------------------------------------------------------------------------
+-- Update main mode button states based on device state
+--------------------------------------------------------------------------------
+function UIBerylDevice:UpdateMainModeButtons()
+    if not self.wrapper then return end
+    
+    local state = self.wrapper.device_state or "idle"
+    
+    -- Pick Up button: enabled only when NOT charging
+    if state == "charging" then
+        self.btn_pickup:Enable(false)
+    else
+        self.btn_pickup:Enable(true)
+    end
+    
+    -- Select Artifact button: enabled only when idle (other states have specific meanings)
+    if state == "idle" then
+        self.btn_select_artifact:Enable(true)
+    else
+        self.btn_select_artifact:Enable(false)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Populate artifact list with perk artifacts from player inventory
+--------------------------------------------------------------------------------
+function UIBerylDevice:PopulateArtifactList()
+    self.artifact_list:ClearList()
+    self.artifact_list_data = {}
+    
+    local actor = db.actor
+    if not actor then return end
+    
+    -- Get the wrapper's method to find perk artifacts
+    if not self.wrapper then return end
+    
+    local artifacts = self.wrapper:find_perk_artifacts_in_inventory(actor)
+    
+    -- Filter out fully charged artifacts (100% condition)
+    local filtered = {}
+    for _, entry in ipairs(artifacts) do
+        if entry.condition < 1.0 then
+            table.insert(filtered, entry)
+        end
+    end
+    
+    if #filtered == 0 then
+        -- No artifacts found, show message and go back
+        if actor then
+            actor:give_talk_message("st_zad_beryl_no_artifacts", nil, nil, nil, nil)
+        end
+        self:ShowMainMode()
+        return
+    end
+    
+    -- Sort artifacts by condition (ascending - most damaged first)
+    table.sort(filtered, function(a, b)
+        return a.condition < b.condition
+    end)
+    
+    for idx, entry in ipairs(filtered) do
+        -- Get artifact name from the object
+        local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
+        local condition_pct = math.floor(entry.condition * 100)
+        local display_text = art_name .. " [" .. condition_pct .. "%]"
+        
+        -- Store data keyed by display text for retrieval on click
+        -- The display text is unique enough (artifact name + condition)
+        self.artifact_list_data[display_text] = {
+            section = entry.section,
+            condition = entry.condition,
+            object = entry.object
+        }
+        
+        -- Add to list (store section as hint text for retrieval)
+        self.artifact_list:AddItem(display_text, entry.section)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Get a human-readable name for an artifact
+--------------------------------------------------------------------------------
+function UIBerylDevice:GetArtifactDisplayName(obj, section)
+    if not obj then return section or "Unknown" end
+    
+    -- Try to get the name via the engine
+    local name = obj:name()
+    if name and name ~= "" then
+        return name
+    end
+    
+    -- Try to get from section
+    if section then
+        -- Try to get the inventory name from the item's section
+        local item_name = game.translate_string(section)
+        if item_name and item_name ~= section then
+            return item_name
+        end
+    end
+    
+    return section or "Unknown"
+end
+
+--------------------------------------------------------------------------------
+-- Callbacks
+--------------------------------------------------------------------------------
+
+-- "Select Perk Artifact" button clicked
+function UIBerylDevice:OnSelectArtifact()
+    if not self.wrapper then return end
+    
+    -- Only works in idle state
+    if self.wrapper.device_state ~= "idle" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_busy", nil, nil, nil, nil)
+        end
+        return
+    end
+    
+    -- Switch to selection mode
+    self:ShowSelectMode()
+end
+
+-- "Pick Up" button clicked
+function UIBerylDevice:OnPickup()
+    if not self.wrapper then return end
+    
+    -- Can't pick up while charging
+    if self.wrapper.device_state == "charging" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+        end
+        return
+    end
+    
+    -- Close dialog first
+    self:Close()
+    
+    -- Trigger pickup on the wrapper
+    self.wrapper:pickup()
+end
+
+-- "Close" button clicked
+function UIBerylDevice:OnClose()
+    self:Close()
+end
+
+-- An artifact was clicked in the list
+function UIBerylDevice:OnArtifactClicked()
+    local selected = self.artifact_list:GetSelectedItem()
+    if not selected then return end
+    
+    -- Get the display text to look up the artifact data
+    local display_text = selected:GetText()
+    if not display_text then return end
+    
+    local data = self.artifact_list_data[display_text]
+    if not data then return end
+    
+    -- Close the dialog
+    self:Close()
+    
+    -- Start charging with the selected artifact
+    if self.wrapper then
+        self.wrapper:select_and_charge(data.section, data.condition, db.actor)
+    end
+end
+
+-- "Cancel" button clicked in selection mode
+function UIBerylDevice:OnCancelSelect()
+    self:ShowMainMode()
+end
+
+--------------------------------------------------------------------------------
+-- Update called every frame while dialog is shown
+--------------------------------------------------------------------------------
+function UIBerylDevice:Update()
+    CUIScriptWnd.Update(self)
+    
+    -- Periodically refresh the wrapper reference (in case it changed)
+    if self.obj_id then
+        self.wrapper = get_beryl_wrapper(self.obj_id)
+    end
+    
+    -- Update status text and button states in main mode
+    if self.ui_mode == "main" and self.wrapper then
+        self:UpdateStatusText()
+        self:UpdateMainModeButtons()
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Close and cleanup
+--------------------------------------------------------------------------------
+function UIBerylDevice:Close()
+    if self:IsShown() then
+        self:HideDialog()
+    end
+    Unregister_UI("UIBerylDevice")
+end
+
+--------------------------------------------------------------------------------
+-- Entry point: called from use_callback or from LTX ui_on_interaction
+--------------------------------------------------------------------------------
+function start_dialog(obj_id)
+    if GUI == nil then
+        GUI = UIBerylDevice()
+    end
+    
+    -- If dialog is already shown, close it first
+    if GUI:IsShown() then
+        GUI:Close()
+        -- Create a fresh instance
+        GUI = UIBerylDevice()
+    end
+    
+    GUI:TestAndShow(obj_id)
+end

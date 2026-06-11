@@ -55,4 +55,27 @@
 	<string id="st_zad_beryl_busy">
 		<text>Device is busy processing an artifact.</text>
 	</string>
+
+	<!-- Beryl Device UI Dialog Strings -->
+	<string id="st_zad_beryl_select_artifact">
+		<text>Select Perk Artifact</text>
+	</string>
+	<string id="st_zad_beryl_pickup">
+		<text>Pick Up Device</text>
+	</string>
+	<string id="st_zad_beryl_select_header">
+		<text>Select a perk artifact to recharge:</text>
+	</string>
+	<string id="st_zad_beryl_ui_status_idle">
+		<text>Device ready. Select an artifact or pick up the device.</text>
+	</string>
+	<string id="st_zad_beryl_ui_status_charging">
+		<text>Device is charging. Please wait...</text>
+	</string>
+	<string id="st_zad_beryl_ui_status_cooldown">
+		<text>Device is on cooldown. Please wait...</text>
+	</string>
+	<string id="st_zad_beryl_ui_status_ready">
+		<text>Recharge complete! Pick up to retrieve your artifact.</text>
+	</string>
 </string_table>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<w>
+	<background x="326" y="220" width="370" height="260" stretch="1">
+		<texture>ui_inGame2_hint_wnd_main_window</texture>
+	</background>
+
+	<!-- Device Title -->
+	<title_text x="0" y="8" width="1024" height="24" align="c">
+		<text font="letterica25">st_zad_device_beryl_name</text>
+	</title_text>
+
+	<!-- Status text -->
+	<status_text x="0" y="36" width="1024" height="20" align="c">
+		<text font="letterica18">st_zad_beryl_ui_status_idle</text>
+	</status_text>
+
+	<!-- Main mode: Select Artifact button -->
+	<btn_select_artifact x="78" y="90" width="214" height="28" check_mode="0" stretch="1">
+		<window_name>button_select_artifact</window_name>
+		<text font="letterica18">st_zad_beryl_select_artifact</text>
+		<texture>ui_button_ordinary</texture>
+	</btn_select_artifact>
+
+	<!-- Main mode: Pick Up button -->
+	<btn_pickup x="78" y="130" width="214" height="28" check_mode="0" stretch="1">
+		<window_name>button_pickup</window_name>
+		<text font="letterica18">st_zad_beryl_pickup</text>
+		<texture>ui_button_ordinary</texture>
+	</btn_pickup>
+
+	<!-- Main mode: Close button -->
+	<btn_close x="78" y="170" width="214" height="28" check_mode="0" stretch="1">
+		<window_name>button_close</window_name>
+		<text font="letterica18">st_close</text>
+		<texture>ui_button_ordinary</texture>
+	</btn_close>
+
+	<!-- Selection mode: Artifact list -->
+	<artifact_list x="50" y="70" width="270" height="160">
+		<font font="letterica18"/>
+	</artifact_list>
+
+	<!-- Selection mode: Cancel/Back button (shown during selection) -->
+	<btn_cancel_select x="78" y="240" width="214" height="28" check_mode="0" stretch="1">
+		<window_name>button_cancel_select</window_name>
+		<text font="letterica18">st_cancel</text>
+		<texture>ui_button_ordinary</texture>
+	</btn_cancel_select>
+
+	<!-- Selection mode: Header text for list -->
+	<select_header x="0" y="52" width="1024" height="20" align="c">
+		<text font="letterica18">st_zad_beryl_select_header</text>
+	</select_header>
+</w>
