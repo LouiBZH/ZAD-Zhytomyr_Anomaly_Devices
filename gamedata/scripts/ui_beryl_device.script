@@ -49,7 +49,7 @@ function UIBerylDevice:InitControls()
     self.btn_close = xml:Init3tButton("btn_close", self)
     self:Register(self.btn_close, "btn_close")
     
-    self.artifact_list = xml:InitListWnd("artifact_list", self)
+    self.artifact_list = xml:InitListBox("artifact_list", self)
     self:Register(self.artifact_list, "artifact_list")
     
     self.btn_cancel_select = xml:Init3tButton("btn_cancel_select", self)
@@ -188,7 +188,7 @@ end
 -- Populate artifact list with perk artifacts from player inventory
 --------------------------------------------------------------------------------
 function UIBerylDevice:PopulateArtifactList()
-    self.artifact_list:ClearList()
+    self.artifact_list:RemoveAll()
     self.artifact_list_data = {}
     
     local actor = db.actor
