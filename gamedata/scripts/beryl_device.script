@@ -30,17 +30,8 @@ end
 
 function is_perk_artifact(item)
     if not item then return false end
-    
-    -- Method 1: Check if the Perk Based Artefacts mod tracks this section
-    if perk_based_artefacts and perk_based_artefacts.artefact_props then
-        if perk_based_artefacts.artefact_props[item:section()] then
-            return true
-        end
-    end
-    
-    -- Method 2: Fallback — check kind for junk artifacts or regular artifacts
     local kind = item:get_entity_kind()
-    return kind ~= nil and (kind == "i_arty_junk" or kind == "i_artefact")
+    return kind ~= nil and kind == "i_arty_junk"
 end
 
 function find_perk_artifacts_in_inventory()
