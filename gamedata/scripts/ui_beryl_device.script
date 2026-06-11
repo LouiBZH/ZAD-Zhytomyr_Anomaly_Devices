@@ -174,10 +174,10 @@ end
 -- Get a human-readable name for an artifact
 --------------------------------------------------------------------------------
 function UIBerylDevice:GetArtifactDisplayName(obj, section)
-    -- Use the section's localized name first (artifact display names)
+    -- Use the section's localized name first (keys like st_af_generator_name)
     if section then
-        local item_name = game.translate_string(section)
-        if item_name and item_name ~= "" and item_name ~= section then
+        local item_name = game.translate_string("st_" .. section .. "_name")
+        if item_name and item_name ~= "" and item_name ~= "st_" .. section .. "_name" then
             return item_name
         end
     end
