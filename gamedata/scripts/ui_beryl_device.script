@@ -402,6 +402,13 @@ end
 -- Entry point: called from use_callback or from LTX ui_on_interaction
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
+    -- If device is in "ready" state, return artifact directly without opening UI
+    local wrapper = get_beryl_wrapper(obj_id)
+    if wrapper and wrapper.device_state == "ready" then
+        wrapper:return_artifact_to_inventory()
+        return
+    end
+    
     if GUI == nil then
         GUI = UIBerylDevice()
     end
