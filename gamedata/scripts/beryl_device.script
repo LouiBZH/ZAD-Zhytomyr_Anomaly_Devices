@@ -89,7 +89,11 @@ function start_charging(obj_id, section, condition)
     end, actor)
     
     if found_item then
-        actor:remove_item(found_item)
+        -- Release the item via its server object (remove_item doesn't exist in this engine)
+        local se_obj = alife_object(found_item:id())
+        if se_obj then
+            alife():release(se_obj, true)
+        end
     end
 
     set_data(obj_id, {
