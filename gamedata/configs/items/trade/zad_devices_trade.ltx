@@ -1,0 +1,51 @@
+;===============================================================================
+; ZAD Devices - Trade configurations
+; Adds ZAD devices to trader inventories
+;===============================================================================
+
+; --- Ecologist traders (most fitting - they deal with anomalies/artifacts) ---
+[trade_generic_ecolog]:identity_immunities
+buy_condition			= 0.5
+sell_condition			= 1.0
+
+[buy]
+; Buy from player at 50% of base price
+zad_device_topaz		= 0.5
+zad_device_quartz		= 0.5
+zad_device_beryl		= 0.5
+
+[sell]
+; Sell to player at 100% (full price)
+zad_device_topaz		= 1.0
+zad_device_quartz		= 1.0
+zad_device_beryl		= 1.0
+
+; --- Mechanics (for balance/alternative source) ---
+[trade_generic_mechanic]:identity_immunities
+buy_condition			= 0.5
+sell_condition			= 1.0
+
+[buy]
+zad_device_topaz		= 0.5
+zad_device_quartz		= 0.5
+zad_device_beryl		= 0.5
+
+[sell]
+zad_device_topaz		= 1.0
+zad_device_quartz		= 1.0
+zad_device_beryl		= 1.0
+
+; --- Junkyard traders (cheaper, worse condition) ---
+[trade_generic_junky]:identity_immunities
+buy_condition			= 0.3
+sell_condition			= 0.6
+
+[buy]
+zad_device_topaz		= 0.3
+zad_device_quartz		= 0.3
+zad_device_beryl		= 0.3
+
+[sell]
+zad_device_topaz		= 0.6
+zad_device_quartz		= 0.6
+zad_device_beryl		= 0.6
