@@ -251,7 +251,7 @@ end
 function beryl_device_wrapper:start_charging_effects()
     self:play_sound("anomaly\\zad_beryl_activate")
     self:spawn_anomaly_effects()
-    self.object:set_tip_text(game.translate_string("st_zad_beryl_charging"))
+    pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
 end
 
 function beryl_device_wrapper:spawn_anomaly_effects()
@@ -261,10 +261,13 @@ function beryl_device_wrapper:spawn_anomaly_effects()
     local alife = alife()
     if not alife then return end
 
-    self.charge_sound = sound_object("anomaly\\zad_beryl_charge_loop")
-    if self.charge_sound then
-        self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.s3d)
-        self.charge_sound.volume = 1.0
+    local ok_snd, snd = pcall(function() return sound_object("anomaly\\zad_beryl_charge_loop") end)
+    if ok_snd and snd then
+        self.charge_sound = snd
+        pcall(function()
+            self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.s3d)
+            self.charge_sound.volume = 1.0
+        end)
     end
 
     local data = get_data(self.object:id())
@@ -289,9 +292,12 @@ function beryl_device_wrapper:spawn_anomaly_effects()
 
         local anom_type = (i % 2 == 0) and primary_type or grav_type
 
-        local se_obj = alife:create(anom_type, pos, spawn_lvid, gvid)
-        if se_obj then
-            table.insert(self.anomaly_ids, se_obj.id)
+        -- Only spawn if the section exists (check with SYS_GetParam)
+        if SYS_GetParam(0, anom_type, "class", "") ~= "" then
+            local se_obj = alife:create(anom_type, pos, spawn_lvid, gvid)
+            if se_obj then
+                table.insert(self.anomaly_ids, se_obj.id)
+            end
         end
     end
 end
