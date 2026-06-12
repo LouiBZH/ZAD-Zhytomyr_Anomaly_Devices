@@ -188,6 +188,8 @@ function beryl_device_wrapper:__init(obj) super(obj)
     self.anomaly_ids = {}
     self.charge_sound = nil
     self.charge_sound_pos = nil
+    self.charge_stage = 0
+    self.field_spawned = false
 
     local id = self.object:id()
     local data = get_data(id)
@@ -224,6 +226,14 @@ function beryl_device_wrapper:update(delta)
                 self.charge_sound_pos = current_pos
                 pcall(function() self.charge_sound:set_position(current_pos) end)
             end
+        end
+
+        -- Staged anomaly spawning (6 ring stages + field at t=30)
+        if self.charge_stage < 6 and data.charge_timer <= 60 - (self.charge_stage + 1) * 5 then
+            self:spawn_charge_stage(self.charge_stage)
+            self.charge_stage = self.charge_stage + 1
+        elseif self.charge_stage == 6 and data.charge_timer <= 30 and not self.field_spawned then
+            self:spawn_field_zone()
         end
 
         if data.charge_timer <= 0 then
@@ -268,42 +278,55 @@ end
 
 function beryl_device_wrapper:start_charging_effects()
     self:play_sound("anomaly\\zad_beryl_activate")
-    self:spawn_anomaly_effects()
+
+    -- Start the looping charge sound
+    local device_pos = self.object:position()
+    if device_pos then
+        local ok_snd, snd = pcall(function() return sound_object("zad\\test1") end)
+        if ok_snd and snd then
+            self.charge_sound = snd
+            self.charge_sound_pos = device_pos
+            pcall(function()
+                self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
+                self.charge_sound.volume = 1.0
+            end)
+        end
+    end
+
+    -- Reset staged spawning
+    self.charge_stage = 0
+    self.field_spawned = false
+
     pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
 end
 
-function beryl_device_wrapper:spawn_anomaly_effects()
+--------------------------------------------------------------------------------
+-- Spawn anomalies for a specific ring stage
+-- stage 0: 0-5m, 1: 5-10m, 2: 10-15m, 3: 15-20m, 4: 20-25m, 5: 25-30m
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:spawn_charge_stage(stage)
     local device_pos = self.object:position()
     if not device_pos then return end
 
     local alife_obj = alife()
     if not alife_obj then return end
 
-    local ok_snd, snd = pcall(function() return sound_object("zad\\test1") end)
-    if ok_snd and snd then
-        self.charge_sound = snd
-        self.charge_sound_pos = device_pos
-        pcall(function()
-            self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
-            self.charge_sound.volume = 1.0
-        end)
-    end
-
     local data = get_data(self.object:id())
-    local primary_type, field_type = get_anomaly_type_for_artifact(data.artifact_section)
+    local primary_type, _ = get_anomaly_type_for_artifact(data.artifact_section)
 
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
 
+    local inner_radius = stage * 5
+    local outer_radius = (stage + 1) * 5
+
     -- Helper to spawn an anomaly with proper zone data (matching DAO pattern)
     local function spawn_anom(anom_type, pos, spawn_lvid)
-        if not alife_obj then return nil end
         if SYS_GetParam(0, anom_type, "class", "") == "" then return nil end
-        
+
         local se_obj = alife_obj:create(anom_type, pos, spawn_lvid, gvid)
         if not se_obj then return nil end
-        
-        -- Set zone data (required to prevent nearest_s crash in CalcDistanceTo)
+
         pcall(function()
             local zdata = utils_stpk.get_anom_zone_data(se_obj)
             if zdata then
@@ -315,37 +338,15 @@ function beryl_device_wrapper:spawn_anomaly_effects()
                 utils_stpk.set_anom_zone_data(zdata, se_obj)
             end
         end)
-        
+
         return se_obj
     end
 
-    -- Spawn the matching field zone at device position with 30m radius
-    -- Adjust field zone Y to ground level
-    local field_pos = vector():set(device_pos.x, device_pos.y, device_pos.z)
-    local field_lvid = lvid
-    pcall(function()
-        local fv_pos = level.vertex_position(field_lvid)
-        if fv_pos then
-            field_pos.y = fv_pos.y
-        end
-    end)
-    local se_field = spawn_anom(field_type, field_pos, field_lvid)
-    if se_field then
-        -- Override field radius to match max anomaly range
-        pcall(function()
-            local zdata = utils_stpk.get_anom_zone_data(se_field)
-            if zdata and zdata.shapes[1] then
-                zdata.shapes[1].radius = 30.0
-                utils_stpk.set_anom_zone_data(zdata, se_field)
-            end
-        end)
-        table.insert(self.anomaly_ids, se_field.id)
-    end
-
-    -- Spawn 20 elemental + 10 gravitational anomalies in a 5-30m ring
-    for i = 1, 20 do
-        local angle = (i / 20) * 2 * math.pi
-        local dist = 5.0 + math.random() * 25.0  -- 5-30m radius
+    -- Spawn 3-4 elemental anomalies in this ring
+    local elem_count = (stage == 3 or stage == 4) and 4 or 3
+    for i = 1, elem_count do
+        local angle = (i / elem_count) * 2 * math.pi + math.random() * 0.3
+        local dist = inner_radius + math.random() * (outer_radius - inner_radius)
 
         local pos = vector():set(
             device_pos.x + math.cos(angle) * dist,
@@ -355,8 +356,7 @@ function beryl_device_wrapper:spawn_anomaly_effects()
 
         local spawn_lvid = level.vertex_id(pos)
         if spawn_lvid == 65535 then spawn_lvid = lvid end
-        
-        -- Adjust Y to ground level using vertex position
+
         local vertex_pos = level.vertex_position(spawn_lvid)
         if vertex_pos then
             pos.y = vertex_pos.y
@@ -367,13 +367,16 @@ function beryl_device_wrapper:spawn_anomaly_effects()
             table.insert(self.anomaly_ids, se_obj.id)
         end
     end
-    
-    for i = 1, 10 do
-        local angle = (i / 10) * 2 * math.pi + math.random() * 0.5
-        local dist = 5.0 + math.random() * 25.0
-        
-        -- Alternate between springboard and vortex
-        local grav_type = (i % 2 == 0) and "zone_mine_springboard" or "zone_mine_vortex"
+
+    -- Spawn 1-2 gravitational anomalies in this ring
+    local grav_count = (stage == 3 or stage == 4) and 1 or 2
+    for i = 1, grav_count do
+        local angle = (i / grav_count) * 2 * math.pi + math.random() * 0.5
+        local dist = inner_radius + math.random() * (outer_radius - inner_radius)
+
+        local grav_type = (stage % 2 == 0)
+            and "zone_mine_springboard"
+            or "zone_mine_vortex"
 
         local pos = vector():set(
             device_pos.x + math.cos(angle) * dist,
@@ -383,8 +386,7 @@ function beryl_device_wrapper:spawn_anomaly_effects()
 
         local spawn_lvid = level.vertex_id(pos)
         if spawn_lvid == 65535 then spawn_lvid = lvid end
-        
-        -- Adjust Y to ground level using vertex position
+
         local vertex_pos = level.vertex_position(spawn_lvid)
         if vertex_pos then
             pos.y = vertex_pos.y
@@ -395,6 +397,48 @@ function beryl_device_wrapper:spawn_anomaly_effects()
             table.insert(self.anomaly_ids, se_obj.id)
         end
     end
+end
+
+--------------------------------------------------------------------------------
+-- Spawn the field zone at device position (triggered at t=30)
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:spawn_field_zone()
+    local device_pos = self.object:position()
+    if not device_pos then return end
+
+    local alife_obj = alife()
+    if not alife_obj then return end
+
+    local data = get_data(self.object:id())
+    local _, field_type = get_anomaly_type_for_artifact(data.artifact_section)
+
+    local lvid = level.vertex_id(device_pos)
+    local gvid = self.object:game_vertex_id()
+
+    -- Adjust field zone Y to ground level
+    local field_pos = vector():set(device_pos.x, device_pos.y, device_pos.z)
+    pcall(function()
+        local fv_pos = level.vertex_position(lvid)
+        if fv_pos then
+            field_pos.y = fv_pos.y
+        end
+    end)
+
+    if SYS_GetParam(0, field_type, "class", "") == "" then return end
+
+    local se_field = alife_obj:create(field_type, field_pos, lvid, gvid)
+    if not se_field then return end
+
+    pcall(function()
+        local zdata = utils_stpk.get_anom_zone_data(se_field)
+        if zdata and zdata.shapes[1] then
+            zdata.shapes[1].radius = 30.0
+            utils_stpk.set_anom_zone_data(zdata, se_field)
+        end
+    end)
+
+    table.insert(self.anomaly_ids, se_field.id)
+    self.field_spawned = true
 end
 
 function beryl_device_wrapper:stop_charging_effects()
