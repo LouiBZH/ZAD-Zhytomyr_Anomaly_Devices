@@ -8,6 +8,8 @@
 ]]
 
 local GUI = nil  -- singleton
+local last_interact_id = nil   -- guards against double-call from ui_on_interaction + ui_on_simple_interaction
+local last_interact_time = 0
 
 --------------------------------------------------------------------------------
 -- Main UI class
@@ -249,6 +251,13 @@ end
 -- Entry point: called from ui_on_interaction
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
+    -- Guard against double-call from both ui_on_interaction and ui_on_simple_interaction
+    if obj_id == last_interact_id and time_global() - last_interact_time < 100 then
+        return
+    end
+    last_interact_id = obj_id
+    last_interact_time = time_global()
+    
     local state = beryl_device.get_device_state(obj_id)
     
     -- If charging, block UI - tip text already shows "charging" on the device
