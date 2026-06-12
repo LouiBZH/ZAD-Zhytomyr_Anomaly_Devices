@@ -113,7 +113,7 @@ function start_charging(obj_id, section, condition)
     end
 end
 
-function return_artifact_to_player(obj_id)
+function return_artifact_to_player(obj_id, cond)
     local actor = get_actor()
     if not actor then return end
 
@@ -121,7 +121,16 @@ function return_artifact_to_player(obj_id)
     local section = data.artifact_section
     if not section then return end
 
-    alife_create_item(section, actor, {cond = 1.0})
+    alife_create_item(section, actor, {cond = cond or 1.0})
+
+    -- Clean up anomalies before returning artifact
+    local obj = level.object_by_id(obj_id)
+    if obj then
+        local binder = obj:binded_object()
+        if binder and binder.wrapper and binder.wrapper.stop_charging_effects then
+            binder.wrapper:stop_charging_effects()
+        end
+    end
 
     -- Use set_data (full override) instead of update_data (merge)
     -- to ensure artifact_section is completely removed from storage
@@ -135,7 +144,6 @@ function return_artifact_to_player(obj_id)
         })
     end
 
-    local obj = level.object_by_id(obj_id)
     if obj then
         obj:set_tip_text(game.translate_string("st_interact"))
     end
@@ -188,6 +196,7 @@ function beryl_device_wrapper:__init(obj) super(obj)
     self.anomaly_ids = {}
     self.charge_sound = nil
     self.charge_sound_pos = nil
+    self.cooldown_sound = nil
     self.charge_stage = 0
     self.field_spawned = false
 
@@ -238,9 +247,7 @@ function beryl_device_wrapper:update(delta)
 
         if data.charge_timer <= 0 then
             local orig_cond = data.original_condition or 1.0
-            local cooldown = 2400 + math.ceil((1.0 - orig_cond) * 4800)
-
-            self:stop_charging_effects()
+            local cooldown = 30
 
             set_data(id, {
                 device_state = "cooldown",
@@ -249,6 +256,19 @@ function beryl_device_wrapper:update(delta)
                 artifact_section = data.artifact_section,
                 original_condition = orig_cond
             })
+
+            -- Start cooldown loop sound
+            local cpos = self.object:position()
+            if cpos then
+                local ok_cd, cd_snd = pcall(function() return sound_object("zad\\test2") end)
+                if ok_cd and cd_snd then
+                    self.cooldown_sound = cd_snd
+                    pcall(function()
+                        self.cooldown_sound:play_at_pos(self.object, cpos, 0, sound_object.looped)
+                        self.cooldown_sound.volume = 1.0
+                    end)
+                end
+            end
 
             self:play_sound("anomaly\\zad_beryl_complete")
             self.object:set_tip_text(game.translate_string("st_zad_beryl_cooldown"))
@@ -260,16 +280,9 @@ function beryl_device_wrapper:update(delta)
         data.cooldown_timer = (data.cooldown_timer or 0) - dt
 
         if data.cooldown_timer <= 0 then
-            set_data(id, {
-                device_state = "ready",
-                charge_timer = 0,
-                cooldown_timer = 0,
-                artifact_section = data.artifact_section,
-                original_condition = data.original_condition
-            })
-
+            -- Auto-return artifact at original condition if player didn't retrieve it
+            return_artifact_to_player(id, data.original_condition)
             self:play_sound("anomaly\\zad_beryl_ready")
-            self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
         else
             set_data(id, { cooldown_timer = data.cooldown_timer })
         end
@@ -464,6 +477,11 @@ function beryl_device_wrapper:stop_charging_effects()
         pcall(function() self.charge_sound:stop() end)
         self.charge_sound = nil
         self.charge_sound_pos = nil
+    end
+
+    if self.cooldown_sound then
+        pcall(function() self.cooldown_sound:stop() end)
+        self.cooldown_sound = nil
     end
 end
 
