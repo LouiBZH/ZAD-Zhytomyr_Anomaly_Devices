@@ -140,7 +140,7 @@ function return_artifact_to_player(obj_id)
 end
 
 function get_anomaly_type_for_artifact(section)
-    if not section then return "zone_mine_electric" end
+    if not section then return "zone_mine_electric", "zone_field_radioactive" end
 
     local ini = system_ini()
     local det_particles = nil
@@ -148,20 +148,19 @@ function get_anomaly_type_for_artifact(section)
         det_particles = ini:r_string_ex(section, "det_show_particles")
     end
 
-    if not det_particles then return "zone_mine_point" end
+    if not det_particles then return "zone_mine_electric", "zone_field_radioactive" end
 
     det_particles = string.lower(det_particles)
 
-    -- Map artifact detection particles to existing DAO mine sections
     if string.find(det_particles, "electra") then
-        return "zone_mine_electric"
-    elseif string.find(det_particles, "thermal") or string.find(det_particles, "fire") then
-        return "zone_mine_flash"
-    elseif string.find(det_particles, "acidic") or string.find(det_particles, "acid") then
-        return "zone_mine_green_dragon"
+        return "zone_mine_electric", "zone_field_radioactive"
+    elseif string.find(det_particles, "thermal") then
+        return "zone_mine_thermal", "zone_field_thermal"
+    elseif string.find(det_particles, "acidic") then
+        return "zone_mine_acidic", "zone_field_acidic"
     end
 
-    return "zone_mine_point"
+    return "zone_mine_electric", "zone_field_radioactive"
 end
 
 --------------------------------------------------------------------------------
@@ -272,12 +271,21 @@ function beryl_device_wrapper:spawn_anomaly_effects()
     end
 
     local data = get_data(self.object:id())
-    local primary_type = get_anomaly_type_for_artifact(data.artifact_section)
-    local grav_type = "zone_mine_point"
+    local primary_type, field_type = get_anomaly_type_for_artifact(data.artifact_section)
+    local grav_type = "zone_mine_gravitational"
 
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
 
+    -- Spawn the matching field zone at device position
+    if SYS_GetParam(0, field_type, "class", "") ~= "" then
+        local se_field = alife:create(field_type, device_pos, lvid, gvid)
+        if se_field then
+            table.insert(self.anomaly_ids, se_field.id)
+        end
+    end
+
+    -- Spawn mine anomalies in a ring: mix elemental and gravitational
     for i = 1, self.anomaly_count do
         local angle = (i / self.anomaly_count) * 2 * math.pi
         local dist = self.anomaly_radius * (0.6 + math.random() * 0.4)
@@ -293,7 +301,6 @@ function beryl_device_wrapper:spawn_anomaly_effects()
 
         local anom_type = (i % 2 == 0) and primary_type or grav_type
 
-        -- Only spawn if the section exists (check with SYS_GetParam)
         if SYS_GetParam(0, anom_type, "class", "") ~= "" then
             local se_obj = alife:create(anom_type, pos, spawn_lvid, gvid)
             if se_obj then
