@@ -278,7 +278,7 @@ function beryl_device_wrapper:update(delta)
             end
             local cpos = self.object:position()
             if cpos then
-                local ok_cd, cd_snd = pcall(function() return sound_object("zad\\test2") end)
+                local ok_cd, cd_snd = pcall(function() return sound_object("zad\\beryl_cd") end)
                 if ok_cd and cd_snd then
                     self.cooldown_sound = cd_snd
                     pcall(function()
@@ -327,7 +327,7 @@ function beryl_device_wrapper:start_charging_effects()
 
     -- Start the looping charge sound
     if device_pos then
-        local ok_snd, snd = pcall(function() return sound_object("zad\\test1") end)
+        local ok_snd, snd = pcall(function() return sound_object("zad\\beryl_charging") end)
         if ok_snd and snd then
             self.charge_sound = snd
             self.charge_sound_pos = device_pos
@@ -388,8 +388,8 @@ function beryl_device_wrapper:spawn_charge_stage(stage)
         return se_obj
     end
 
-    -- Elemental count scales with distance: 2,3,4,5,6,7
-    local elem_count = stage + 2
+    -- Elemental count per stage: 1,2,4,5,8,9
+    local elem_count = ({1, 2, 4, 5, 8, 9})[stage + 1] or 1
     for i = 1, elem_count do
         local angle = (i / elem_count) * 2 * math.pi + math.random() * 0.3
         local dist = inner_radius + math.random() * (outer_radius - inner_radius)
@@ -414,8 +414,8 @@ function beryl_device_wrapper:spawn_charge_stage(stage)
         end
     end
 
-    -- Gravitational count scales with distance: 1,1,2,2,3,3
-    local grav_count = math.floor(stage / 2) + 1
+    -- Gravitational count per stage: 1,2,3,4,4,5
+    local grav_count = ({1, 2, 3, 4, 4, 5})[stage + 1] or 1
     for i = 1, grav_count do
         local angle = (i / grav_count) * 2 * math.pi + math.random() * 0.5
         local dist = inner_radius + math.random() * (outer_radius - inner_radius)
