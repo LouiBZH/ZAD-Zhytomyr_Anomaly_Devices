@@ -237,12 +237,10 @@ function beryl_device_wrapper:update(delta)
             end
         end
 
-        -- Staged anomaly spawning (2m min distance to avoid device overlap)
+        -- Staged anomaly mine spawning (field zone already spawned at t=0)
         if self.charge_stage < 6 and data.charge_timer <= 60 - (self.charge_stage + 1) * 5 then
             self:spawn_charge_stage(self.charge_stage)
             self.charge_stage = self.charge_stage + 1
-        elseif self.charge_stage == 6 and data.charge_timer <= 30 and not self.field_spawned then
-            self:spawn_field_zone()
         end
 
         if data.charge_timer <= 0 then
@@ -311,9 +309,13 @@ function beryl_device_wrapper:start_charging_effects()
         end
     end
 
-    -- Reset staged spawning tracking
+    -- Spawn field zone at device position (at t=0, not from update loop, to avoid nearest_s crash)
+    if device_pos then
+        self:spawn_field_zone()
+    end
+
+    -- Reset staged anomaly spawning tracking
     self.charge_stage = 0
-    self.field_spawned = false
 
     pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
 end
