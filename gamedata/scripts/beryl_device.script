@@ -179,8 +179,8 @@ class "beryl_device_wrapper" (bind_hf_base.hf_binder_wrapper)
 
 function beryl_device_wrapper:__init(obj) super(obj)
 
-    self.anomaly_radius = 20
-    self.anomaly_count = 10
+    self.anomaly_radius = 30
+    self.anomaly_count = 30
     self.anomaly_ids = {}
     self.charge_sound = nil
 
@@ -305,36 +305,54 @@ function beryl_device_wrapper:spawn_anomaly_effects()
         return se_obj
     end
 
-    -- Spawn the matching field zone at device position
+    -- Spawn the matching field zone at device position with 30m radius
     local se_field = spawn_anom(field_type, device_pos, lvid)
     if se_field then
+        -- Override field radius to match max anomaly range
+        pcall(function()
+            local zdata = utils_stpk.get_anom_zone_data(se_field)
+            if zdata and zdata.shapes[1] then
+                zdata.shapes[1].radius = 30.0
+                utils_stpk.set_anom_zone_data(zdata, se_field)
+            end
+        end)
         table.insert(self.anomaly_ids, se_field.id)
     end
 
-    -- Spawn mine anomalies in a ring: mix elemental (60%) and gravitational (40%)
-    -- Using original radius (20m) now that zone data prevents crashes
-    for i = 1, self.anomaly_count do
-        local angle = (i / self.anomaly_count) * 2 * math.pi
-        -- Skew towards elemental: 60% elemental, 40% gravitational
-        local anom_type
-        if i % 5 == 0 or i % 5 == 3 or i % 5 == 4 then
-            anom_type = primary_type
-        else
-            anom_type = grav_type
-        end
-
-        local dist = 5.0 + math.random() * 15.0  -- 5-20m radius
+    -- Spawn 20 elemental + 10 gravitational anomalies in a 5-30m ring
+    for i = 1, 20 do
+        local angle = (i / 20) * 2 * math.pi
+        local dist = 5.0 + math.random() * 25.0  -- 5-30m radius
 
         local pos = vector():set(
             device_pos.x + math.cos(angle) * dist,
-            device_pos.y + 0.5,
+            device_pos.y,  -- ground level
             device_pos.z + math.sin(angle) * dist
         )
 
         local spawn_lvid = level.vertex_id(pos)
         if spawn_lvid == 65535 then spawn_lvid = lvid end
 
-        local se_obj = spawn_anom(anom_type, pos, spawn_lvid)
+        local se_obj = spawn_anom(primary_type, pos, spawn_lvid)
+        if se_obj then
+            table.insert(self.anomaly_ids, se_obj.id)
+        end
+    end
+    
+    for i = 1, 10 do
+        local angle = (i / 10) * 2 * math.pi + math.random() * 0.5  -- offset angle
+        local dist = 5.0 + math.random() * 25.0
+
+        local pos = vector():set(
+            device_pos.x + math.cos(angle) * dist,
+            device_pos.y,
+            device_pos.z + math.sin(angle) * dist
+        )
+
+        local spawn_lvid = level.vertex_id(pos)
+        if spawn_lvid == 65535 then spawn_lvid = lvid end
+
+        local se_obj = spawn_anom(grav_type, pos, spawn_lvid)
         if se_obj then
             table.insert(self.anomaly_ids, se_obj.id)
         end
