@@ -333,7 +333,7 @@ function beryl_device_wrapper:start_charging_effects()
             self.charge_sound_pos = device_pos
             pcall(function()
                 self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
-                self.charge_sound.volume = 2.0
+                self.charge_sound.volume = 1.0
             end)
         end
     end
