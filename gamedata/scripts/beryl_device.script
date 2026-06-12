@@ -200,13 +200,17 @@ function beryl_device_wrapper:__init(obj) super(obj)
 end
 
 function beryl_device_wrapper:update(delta)
+    -- Convert delta to seconds (engine passes milliseconds, see alarm_system_wrapper pattern)
+    local dt = delta
+    if dt > 1.0 then dt = dt / 1000.0 end
+    
     if not self.object then return end
     local id = self.object:id()
     local data = get_data(id)
     local state = data.device_state or "idle"
 
     if state == "charging" then
-        data.charge_timer = (data.charge_timer or 60) - delta
+        data.charge_timer = (data.charge_timer or 60) - dt
 
         if data.charge_timer <= 0 then
             local orig_cond = data.original_condition or 1.0
@@ -229,7 +233,7 @@ function beryl_device_wrapper:update(delta)
         end
 
     elseif state == "cooldown" then
-        data.cooldown_timer = (data.cooldown_timer or 0) - delta
+        data.cooldown_timer = (data.cooldown_timer or 0) - dt
 
         if data.cooldown_timer <= 0 then
             set_data(id, {
