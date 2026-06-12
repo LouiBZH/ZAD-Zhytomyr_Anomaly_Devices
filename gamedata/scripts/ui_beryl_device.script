@@ -259,8 +259,16 @@ function start_dialog(obj_id)
         return
     end
     
-    -- If ready, return artifact directly without opening UI
+    -- If ready or has a pending artifact, return it first
     if state == "ready" then
+        beryl_device.return_artifact_to_player(obj_id)
+        return
+    end
+    
+    -- Also check if there's an artifact waiting to be returned (state mismatch safeguard)
+    local art_section = beryl_device.get_artifact_info(obj_id)
+    if state == "idle" and art_section then
+        -- State says idle but there's an artifact section - return it
         beryl_device.return_artifact_to_player(obj_id)
         return
     end
