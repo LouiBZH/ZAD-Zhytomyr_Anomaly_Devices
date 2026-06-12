@@ -370,8 +370,8 @@ function beryl_device_wrapper:spawn_charge_stage(stage)
         return se_obj
     end
 
-    -- Spawn 3-4 elemental anomalies in this ring
-    local elem_count = (stage == 3 or stage == 4) and 4 or 3
+    -- Elemental count scales with distance: 2,3,4,5,6,7
+    local elem_count = stage + 2
     for i = 1, elem_count do
         local angle = (i / elem_count) * 2 * math.pi + math.random() * 0.3
         local dist = inner_radius + math.random() * (outer_radius - inner_radius)
@@ -396,8 +396,8 @@ function beryl_device_wrapper:spawn_charge_stage(stage)
         end
     end
 
-    -- Spawn 1-2 gravitational anomalies in this ring
-    local grav_count = (stage == 3 or stage == 4) and 1 or 2
+    -- Gravitational count scales with distance: 1,1,2,2,3,3
+    local grav_count = math.floor(stage / 2) + 1
     for i = 1, grav_count do
         local angle = (i / grav_count) * 2 * math.pi + math.random() * 0.5
         local dist = inner_radius + math.random() * (outer_radius - inner_radius)
