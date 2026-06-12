@@ -153,14 +153,14 @@ function get_anomaly_type_for_artifact(section)
     det_particles = string.lower(det_particles)
 
     if string.find(det_particles, "electra") then
-        return "zone_mine_electra", "zone_field_radioactive"
+        return "zone_mine_electra", "zone_field_radioactive_strong"
     elseif string.find(det_particles, "thermal") then
-        return "zone_zharka_static_average", "zone_field_thermal"
+        return "zone_zharka_static_average", "zone_field_thermal_strong"
     elseif string.find(det_particles, "acidic") then
-        return "zone_mine_chemical_average", "zone_field_acidic"
+        return "zone_mine_chemical_average", "zone_field_acidic_strong"
     end
 
-    return "zone_mine_electra", "zone_field_radioactive"
+    return "zone_mine_electra", "zone_field_radioactive_strong"
 end
 
 --------------------------------------------------------------------------------
