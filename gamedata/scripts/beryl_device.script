@@ -337,12 +337,25 @@ function beryl_device_wrapper:spawn_charge_stage(stage)
     local inner_radius = stage * 5
     local outer_radius = (stage + 1) * 5
 
-    -- Helper to spawn an anomaly (uses LTX-defined shapes from the zone section)
+    -- Helper to spawn an anomaly with proper zone data (required to prevent nearest_s crash in CalcDistanceTo)
     local function spawn_anom(anom_type, pos, spawn_lvid)
         if SYS_GetParam(0, anom_type, "class", "") == "" then return nil end
 
         local se_obj = alife_obj:create(anom_type, pos, spawn_lvid, gvid)
         if not se_obj then return nil end
+
+        -- Set zone data (required to prevent nearest_s crash in CalcDistanceTo)
+        pcall(function()
+            local zdata = utils_stpk.get_anom_zone_data(se_obj)
+            if zdata then
+                zdata.shapes[1] = zdata.shapes[1] or {}
+                zdata.shapes[1].shtype = 0
+                zdata.shapes[1].offset = vector():set(0, 0, 0)
+                zdata.shapes[1].center = vector():set(0, 0, 0)
+                zdata.shapes[1].radius = 2.0 + math.random() * 2.0
+                utils_stpk.set_anom_zone_data(zdata, se_obj)
+            end
+        end)
 
         return se_obj
     end
@@ -433,6 +446,15 @@ function beryl_device_wrapper:spawn_field_zone()
 
     local se_field = alife_obj:create(field_type, field_pos, lvid, gvid)
     if not se_field then return end
+
+    -- Set zone data with 30m radius (required to prevent nearest_s crash in CalcDistanceTo)
+    pcall(function()
+        local zdata = utils_stpk.get_anom_zone_data(se_field)
+        if zdata and zdata.shapes[1] then
+            zdata.shapes[1].radius = 30.0
+            utils_stpk.set_anom_zone_data(zdata, se_field)
+        end
+    end)
 
     table.insert(self.anomaly_ids, se_field.id)
     self.field_spawned = true
