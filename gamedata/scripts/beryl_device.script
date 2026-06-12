@@ -307,8 +307,8 @@ function beryl_device_wrapper:update(delta)
         end
 
         if data.cooldown_timer <= 0 then
-            -- Cooldown over, device ready for manual retrieval at original condition
-            -- Anomalies remain until player retrieves the artifact
+            -- Cooldown over, clean up anomalies and ready for manual retrieval
+            self:stop_charging_effects()
             set_data(id, {
                 device_state = "ready",
                 charge_timer = 0,
