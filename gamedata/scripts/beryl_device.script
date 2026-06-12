@@ -283,8 +283,6 @@ function beryl_device_wrapper:update(delta)
                     self.cooldown_sound = cd_snd
                     pcall(function()
                         self.cooldown_sound:play_at_pos(self.object, cpos, 0, sound_object.looped)
-                        self.cooldown_sound.min_distance = 1.0
-                        self.cooldown_sound.max_distance = 100.0
                         self.cooldown_sound.volume = 1.0
                     end)
                 end
@@ -335,8 +333,6 @@ function beryl_device_wrapper:start_charging_effects()
             self.charge_sound_pos = device_pos
             pcall(function()
                 self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
-                self.charge_sound.min_distance = 1.0
-                self.charge_sound.max_distance = 100.0
                 self.charge_sound.volume = 1.0
             end)
         end
