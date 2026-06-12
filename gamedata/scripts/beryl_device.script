@@ -257,7 +257,12 @@ function beryl_device_wrapper:update(delta)
                 original_condition = orig_cond
             })
 
-            -- Start cooldown loop sound
+            -- Stop charge sound, start cooldown loop sound
+            if self.charge_sound then
+                pcall(function() self.charge_sound:stop() end)
+                self.charge_sound = nil
+                self.charge_sound_pos = nil
+            end
             local cpos = self.object:position()
             if cpos then
                 local ok_cd, cd_snd = pcall(function() return sound_object("zad\\test2") end)
@@ -265,6 +270,8 @@ function beryl_device_wrapper:update(delta)
                     self.cooldown_sound = cd_snd
                     pcall(function()
                         self.cooldown_sound:play_at_pos(self.object, cpos, 0, sound_object.looped)
+                        self.cooldown_sound.min_distance = 1.0
+                        self.cooldown_sound.max_distance = 100.0
                         self.cooldown_sound.volume = 1.0
                     end)
                 end
@@ -306,6 +313,8 @@ function beryl_device_wrapper:start_charging_effects()
             self.charge_sound_pos = device_pos
             pcall(function()
                 self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
+                self.charge_sound.min_distance = 1.0
+                self.charge_sound.max_distance = 100.0
                 self.charge_sound.volume = 1.0
             end)
         end
@@ -456,7 +465,7 @@ function beryl_device_wrapper:spawn_field_zone()
             zdata.shapes[1].shtype = 0
             zdata.shapes[1].offset = vector():set(0, 0, 0)
             zdata.shapes[1].center = vector():set(0, 0, 0)
-            zdata.shapes[1].radius = 30.0
+            zdata.shapes[1].radius = 32.0
             utils_stpk.set_anom_zone_data(zdata, se_field)
         end
     end)
