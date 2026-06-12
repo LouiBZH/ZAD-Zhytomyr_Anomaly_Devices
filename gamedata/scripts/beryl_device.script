@@ -283,7 +283,7 @@ function beryl_device_wrapper:update(delta)
                     self.cooldown_sound = cd_snd
                     pcall(function()
                         self.cooldown_sound:play_at_pos(self.object, cpos, 0, sound_object.looped)
-                        self.cooldown_sound.volume = 2.0
+                        self.cooldown_sound.volume = 1.0
                     end)
                 end
             end
