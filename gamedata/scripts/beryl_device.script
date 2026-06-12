@@ -278,6 +278,14 @@ function beryl_device_wrapper:update(delta)
     elseif state == "cooldown" then
         data.cooldown_timer = (data.cooldown_timer or 0) - dt
 
+        -- Keep cooldown sound position synced with device position
+        if self.cooldown_sound then
+            local current_pos = self.object:position()
+            if current_pos then
+                pcall(function() self.cooldown_sound:set_position(current_pos) end)
+            end
+        end
+
         if data.cooldown_timer <= 0 then
             -- Auto-return artifact at original condition if player didn't retrieve it
             return_artifact_to_player(id, data.original_condition)
