@@ -316,15 +316,15 @@ function beryl_device_wrapper:stop_charging_effects()
         for _, id in ipairs(self.anomaly_ids) do
             local se_obj = alife:object(id)
             if se_obj then
-                se_obj:disable_anomaly()
-                alife:release(se_obj, true)
+                pcall(function() se_obj:disable_anomaly() end)
+                pcall(function() alife:release(se_obj, true) end)
             end
         end
     end
     self.anomaly_ids = {}
 
     if self.charge_sound then
-        self.charge_sound:stop()
+        pcall(function() self.charge_sound:stop() end)
         self.charge_sound = nil
     end
 end
