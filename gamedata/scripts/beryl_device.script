@@ -284,7 +284,7 @@ function beryl_device_wrapper:spawn_anomaly_effects()
         self.charge_sound = snd
         self.charge_sound_pos = device_pos
         pcall(function()
-            self.charge_sound:play_at_pos(nil, device_pos, 0, sound_object.s3d)
+            self.charge_sound:play_at_pos(self.object, device_pos, 0, sound_object.looped)
             self.charge_sound.volume = 1.0
         end)
     end
