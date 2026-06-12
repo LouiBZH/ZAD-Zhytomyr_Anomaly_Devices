@@ -444,3 +444,34 @@ function beryl_device_wrapper:net_destroy()
         bind_hf_base.hf_binder_wrapper.net_destroy(self)
     end
 end
+
+--------------------------------------------------------------------------------
+-- Prevent pickup while charging or when an artifact hasn't been retrieved
+--------------------------------------------------------------------------------
+function beryl_device_wrapper:pickup()
+    local id = self.object:id()
+    local data = get_data(id)
+    local state = data.device_state or "idle"
+    
+    -- Cannot pick up while charging
+    if state == "charging" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+        end
+        return false
+    end
+    
+    -- Cannot pick up if there's an artifact waiting to be retrieved
+    if data.artifact_section then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_retrieve", nil, nil, nil, nil)
+        end
+        return false
+    end
+    
+    -- Clean up any active effects before pickup
+    self:stop_charging_effects()
+    
+    -- Call parent pickup
+    return bind_hf_base.hf_binder_wrapper.pickup(self)
+end
