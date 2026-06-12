@@ -123,13 +123,17 @@ function return_artifact_to_player(obj_id)
 
     alife_create_item(section, actor, {cond = 1.0})
 
-    set_data(obj_id, {
-        device_state = "idle",
-        charge_timer = 0,
-        cooldown_timer = 0,
-        artifact_section = nil,
-        original_condition = nil
-    })
+    -- Use set_data (full override) instead of update_data (merge)
+    -- to ensure artifact_section is completely removed from storage
+    if hf_obj_manager then
+        hf_obj_manager.set_data(obj_id, {
+            device_state = "idle",
+            charge_timer = 0,
+            cooldown_timer = 0,
+            artifact_section = nil,
+            original_condition = nil
+        })
+    end
 
     local obj = level.object_by_id(obj_id)
     if obj then
