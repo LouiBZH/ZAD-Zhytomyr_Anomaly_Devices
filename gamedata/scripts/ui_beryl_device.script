@@ -250,6 +250,16 @@ end
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
     local state = beryl_device.get_device_state(obj_id)
+    
+    -- If charging, show message and don't open UI
+    if state == "charging" then
+        if db.actor then
+            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+        end
+        return
+    end
+    
+    -- If ready, return artifact directly without opening UI
     if state == "ready" then
         beryl_device.return_artifact_to_player(obj_id)
         return
