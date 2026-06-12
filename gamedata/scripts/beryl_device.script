@@ -262,8 +262,8 @@ function beryl_device_wrapper:spawn_anomaly_effects()
     local device_pos = self.object:position()
     if not device_pos then return end
 
-    local alife = alife()
-    if not alife then return end
+    local alife_obj = alife()
+    if not alife_obj then return end
 
     local ok_snd, snd = pcall(function() return sound_object("anomaly\\zad_beryl_charge_loop") end)
     if ok_snd and snd then
@@ -281,19 +281,49 @@ function beryl_device_wrapper:spawn_anomaly_effects()
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
 
-    -- Spawn the matching field zone at device position
-    if SYS_GetParam(0, field_type, "class", "") ~= "" then
-        local se_field = alife:create(field_type, device_pos, lvid, gvid)
-        if se_field then
-            table.insert(self.anomaly_ids, se_field.id)
-        end
+    -- Helper to spawn an anomaly with proper zone data (matching DAO pattern)
+    local function spawn_anom(anom_type, pos, spawn_lvid)
+        if not alife_obj then return nil end
+        if SYS_GetParam(0, anom_type, "class", "") == "" then return nil end
+        
+        local se_obj = alife_obj:create(anom_type, pos, spawn_lvid, gvid)
+        if not se_obj then return nil end
+        
+        -- Set zone data (required to prevent nearest_s crash in CalcDistanceTo)
+        pcall(function()
+            local zdata = utils_stpk.get_anom_zone_data(se_obj)
+            if zdata then
+                zdata.shapes[1] = zdata.shapes[1] or {}
+                zdata.shapes[1].shtype = 0
+                zdata.shapes[1].offset = vector():set(0, 0, 0)
+                zdata.shapes[1].center = vector():set(0, 0, 0)
+                zdata.shapes[1].radius = 2.0 + math.random() * 2.0
+                utils_stpk.set_anom_zone_data(zdata, se_obj)
+            end
+        end)
+        
+        return se_obj
     end
 
-    -- Spawn mine anomalies in a ring: mix elemental and gravitational
-    -- Keep radius small and validate each position to avoid engine crashes
+    -- Spawn the matching field zone at device position
+    local se_field = spawn_anom(field_type, device_pos, lvid)
+    if se_field then
+        table.insert(self.anomaly_ids, se_field.id)
+    end
+
+    -- Spawn mine anomalies in a ring: mix elemental (60%) and gravitational (40%)
+    -- Using original radius (20m) now that zone data prevents crashes
     for i = 1, self.anomaly_count do
         local angle = (i / self.anomaly_count) * 2 * math.pi
-        local dist = 3.0 + math.random() * 5.0  -- 3-8m radius
+        -- Skew towards elemental: 60% elemental, 40% gravitational
+        local anom_type
+        if i % 5 == 0 or i % 5 == 3 or i % 5 == 4 then
+            anom_type = primary_type
+        else
+            anom_type = grav_type
+        end
+
+        local dist = 5.0 + math.random() * 15.0  -- 5-20m radius
 
         local pos = vector():set(
             device_pos.x + math.cos(angle) * dist,
@@ -301,38 +331,30 @@ function beryl_device_wrapper:spawn_anomaly_effects()
             device_pos.z + math.sin(angle) * dist
         )
 
-        -- Validate the position: skip if no valid level vertex nearby
         local spawn_lvid = level.vertex_id(pos)
-        if spawn_lvid == 65535 then
-            -- Try a position closer to the device
-            pos = vector():set(
-                device_pos.x + math.cos(angle) * 1.5,
-                device_pos.y + 0.5,
-                device_pos.z + math.sin(angle) * 1.5
-            )
-            spawn_lvid = level.vertex_id(pos)
-            if spawn_lvid == 65535 then spawn_lvid = lvid end
-        end
+        if spawn_lvid == 65535 then spawn_lvid = lvid end
 
-        local anom_type = (i % 2 == 0) and primary_type or grav_type
-
-        if SYS_GetParam(0, anom_type, "class", "") ~= "" then
-            local se_obj = alife:create(anom_type, pos, spawn_lvid, gvid)
-            if se_obj then
-                table.insert(self.anomaly_ids, se_obj.id)
-            end
+        local se_obj = spawn_anom(anom_type, pos, spawn_lvid)
+        if se_obj then
+            table.insert(self.anomaly_ids, se_obj.id)
         end
     end
 end
 
 function beryl_device_wrapper:stop_charging_effects()
-    local alife = alife()
-    if alife then
-        for _, id in ipairs(self.anomaly_ids) do
-            local se_obj = alife:object(id)
+    -- Disable anomalies via game object (matching DAO pattern), then release
+    local alife_obj = alife()
+    for _, id in ipairs(self.anomaly_ids) do
+        -- First disable via game object (disable_anomaly exists on game_object, not server)
+        local g_obj = level.object_by_id(id)
+        if g_obj then
+            pcall(function() g_obj:disable_anomaly() end)
+        end
+        -- Then release via server object
+        if alife_obj then
+            local se_obj = alife_obj:object(id)
             if se_obj then
-                pcall(function() se_obj:disable_anomaly() end)
-                pcall(function() alife:release(se_obj, true) end)
+                pcall(function() alife_obj:release(se_obj, true) end)
             end
         end
     end
