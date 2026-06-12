@@ -254,7 +254,7 @@ function start_dialog(obj_id)
     -- If charging, show message and don't open UI
     if state == "charging" then
         if db.actor then
-            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+            db.actor:give_talk_message(game.translate_string("st_zad_beryl_charging"))
         end
         return
     end
