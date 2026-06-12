@@ -77,6 +77,15 @@ function start_charging(obj_id, section, condition)
     local actor = get_actor()
     if not section or not actor then return end
 
+    -- Block charging if cooldown timer is still active (player retrieved early)
+    local data = get_data(obj_id)
+    if data.cooldown_timer and data.cooldown_timer > 0 then
+        if actor then
+            actor:give_talk_message("st_zad_beryl_cooldown", nil, nil, nil, nil)
+        end
+        return
+    end
+
     -- Find the artifact first, then remove it (iterate_inventory breaks if you remove during iteration)
     local found_item = nil
     actor:iterate_inventory(function(npc, item)
@@ -132,13 +141,10 @@ function return_artifact_to_player(obj_id, cond)
         end
     end
 
-    -- Use set_data (full override) instead of update_data (merge)
-    -- to ensure artifact_section is completely removed from storage
     if hf_obj_manager then
         hf_obj_manager.set_data(obj_id, {
             device_state = "idle",
             charge_timer = 0,
-            cooldown_timer = 0,
             artifact_section = nil,
             original_condition = nil
         })
@@ -225,6 +231,13 @@ function beryl_device_wrapper:update(delta)
     local data = get_data(id)
     local state = data.device_state or "idle"
 
+    -- Always count down cooldown timer (blocks new charges even after retrieval)
+    if data.cooldown_timer and data.cooldown_timer > 0 and state ~= "cooldown" then
+        data.cooldown_timer = data.cooldown_timer - dt
+        if data.cooldown_timer <= 0 then data.cooldown_timer = 0 end
+        set_data(id, { cooldown_timer = data.cooldown_timer })
+    end
+
     if state == "charging" then
         data.charge_timer = (data.charge_timer or 60) - dt
 
@@ -294,8 +307,17 @@ function beryl_device_wrapper:update(delta)
         end
 
         if data.cooldown_timer <= 0 then
-            -- Auto-return artifact at original condition if player didn't retrieve it
-            return_artifact_to_player(id, data.original_condition)
+            -- Cooldown over, device ready for manual retrieval at original condition
+            -- Anomalies remain until player retrieves the artifact
+            set_data(id, {
+                device_state = "ready",
+                charge_timer = 0,
+                cooldown_timer = 0,
+                artifact_section = data.artifact_section,
+                original_condition = data.original_condition
+            })
+
+            self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
         else
             set_data(id, { cooldown_timer = data.cooldown_timer })
         end

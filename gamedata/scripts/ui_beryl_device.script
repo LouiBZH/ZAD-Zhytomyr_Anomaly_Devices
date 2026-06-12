@@ -259,7 +259,9 @@ function start_dialog(obj_id)
     -- Always try to return any pending artifact first, regardless of state
     local art_section, art_cond = beryl_device.get_artifact_info(obj_id)
     if art_section then
-        beryl_device.return_artifact_to_player(obj_id)
+        -- If cooldown finished (ready state), return at original condition; otherwise full charge
+        local ret_cond = (state == "ready") and art_cond or nil
+        beryl_device.return_artifact_to_player(obj_id, ret_cond)
         return
     end
     
