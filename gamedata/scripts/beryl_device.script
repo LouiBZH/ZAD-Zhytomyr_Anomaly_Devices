@@ -237,10 +237,12 @@ function beryl_device_wrapper:update(delta)
             end
         end
 
-        -- Staged anomaly mine spawning (field zone already spawned at t=0)
+        -- Staged anomaly mine spawning, field zone spawns last at t=30
         if self.charge_stage < 6 and data.charge_timer <= 60 - (self.charge_stage + 1) * 5 then
             self:spawn_charge_stage(self.charge_stage)
             self.charge_stage = self.charge_stage + 1
+        elseif self.charge_stage == 6 and data.charge_timer <= 30 and not self.field_spawned then
+            self:spawn_field_zone()
         end
 
         if data.charge_timer <= 0 then
@@ -309,13 +311,9 @@ function beryl_device_wrapper:start_charging_effects()
         end
     end
 
-    -- Spawn field zone at device position (at t=0, not from update loop, to avoid nearest_s crash)
-    if device_pos then
-        self:spawn_field_zone()
-    end
-
     -- Reset staged anomaly spawning tracking
     self.charge_stage = 0
+    self.field_spawned = false
 
     pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
 end
@@ -450,10 +448,14 @@ function beryl_device_wrapper:spawn_field_zone()
     local se_field = alife_obj:create(field_type, field_pos, lvid, gvid)
     if not se_field then return end
 
-    -- Set zone data with 30m radius (required to prevent nearest_s crash in CalcDistanceTo)
+    -- Fully initialize zone shape data (required to prevent nearest_s crash in CalcDistanceTo)
     pcall(function()
         local zdata = utils_stpk.get_anom_zone_data(se_field)
-        if zdata and zdata.shapes[1] then
+        if zdata then
+            zdata.shapes[1] = zdata.shapes[1] or {}
+            zdata.shapes[1].shtype = 0
+            zdata.shapes[1].offset = vector():set(0, 0, 0)
+            zdata.shapes[1].center = vector():set(0, 0, 0)
             zdata.shapes[1].radius = 30.0
             utils_stpk.set_anom_zone_data(zdata, se_field)
         end
