@@ -251,25 +251,20 @@ end
 function start_dialog(obj_id)
     local state = beryl_device.get_device_state(obj_id)
     
-    -- If charging, show message and don't open UI
+    -- If charging, block UI - tip text already shows "charging" on the device
     if state == "charging" then
-        if db.actor then
-            db.actor:give_talk_message(game.translate_string("st_zad_beryl_charging"))
-        end
         return
     end
     
-    -- If ready or has a pending artifact, return it first
-    if state == "ready" then
+    -- Always try to return any pending artifact first, regardless of state
+    local art_section, art_cond = beryl_device.get_artifact_info(obj_id)
+    if art_section then
         beryl_device.return_artifact_to_player(obj_id)
         return
     end
     
-    -- Also check if there's an artifact waiting to be returned (state mismatch safeguard)
-    local art_section = beryl_device.get_artifact_info(obj_id)
-    if state == "idle" and art_section then
-        -- State says idle but there's an artifact section - return it
-        beryl_device.return_artifact_to_player(obj_id)
+    -- If still not idle (shouldn't happen after above checks), block UI
+    if state ~= "idle" then
         return
     end
     
