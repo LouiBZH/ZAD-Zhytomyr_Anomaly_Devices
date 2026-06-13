@@ -5,17 +5,16 @@
 
 ; Topaz Device (inventory item)
 [zad_device_topaz]:tch_junk
-$spawn                                    = "zad\devices\zad_device_topaz"
 class                                    = II_ATTACH
 kind                                    = i_tool
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 inv_name                                = st_zad_device_topaz_name
 inv_name_short                            = st_zad_device_topaz_short
 description                                = st_zad_device_topaz_desc
 inv_weight                                = 1.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
-inv_grid_x                                = 0
+inv_grid_x                                = 3
 inv_grid_y                                = 0
 cost                                    = 5000
 icons_texture                            = ui\placeable_devices
@@ -27,17 +26,16 @@ placeable_section                        = placeable_zad_device_topaz
 
 ; Quartz Device (inventory item)
 [zad_device_quartz]:tch_junk
-$spawn                                    = "zad\devices\zad_device_quartz"
 class                                    = II_ATTACH
 kind                                    = i_tool
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 inv_name                                = st_zad_device_quartz_name
 inv_name_short                            = st_zad_device_quartz_short
 description                                = st_zad_device_quartz_desc
 inv_weight                                = 1.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
-inv_grid_x                                = 0
+inv_grid_x                                = 2
 inv_grid_y                                = 0
 cost                                    = 5000
 icons_texture                            = ui\placeable_devices
@@ -49,17 +47,16 @@ placeable_section                        = placeable_zad_device_quartz
 
 ; Beryl Device - Perk Artifact Recharger (inventory item)
 [zad_device_beryl]:tch_junk
-$spawn                                    = "zad\devices\zad_device_beryl"
 class                                    = II_ATTACH
 kind                                    = i_tool
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 inv_name                                = st_zad_device_beryl_name
 inv_name_short                            = st_zad_device_beryl_short
 description                                = st_zad_device_beryl_desc
 inv_weight                                = 1.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
-inv_grid_x                                = 0
+inv_grid_x                                = 1
 inv_grid_y                                = 0
 cost                                    = 5000
 icons_texture                            = ui\placeable_devices
@@ -75,7 +72,7 @@ placeable_section                       = placeable_zad_device_beryl
 
 ; Topaz Device (placed)
 [placeable_zad_device_topaz]:physic_object
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 inv_weight                                = 1.0
 script_binding                            = bind_hf_base.init
 item_section                            = zad_device_topaz
@@ -84,7 +81,7 @@ bounding_box_origin                        = 0, 0.515729, 0.073609
 
 ; Quartz Device (placed)
 [placeable_zad_device_quartz]:physic_object
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 inv_weight                                = 1.0
 script_binding                            = bind_hf_base.init
 item_section                            = zad_device_quartz
@@ -93,7 +90,7 @@ bounding_box_origin                        = 0, 0.515729, 0.073609
 
 ; Beryl Device (placed) - Perk Artifact Recharger
 [placeable_zad_device_beryl]:physic_object
-visual                                    = dynamics\placeable\light_altar.ogf
+visual                                    = zad\Topaz-2.ogf
 placeable_type                            = prop
 script_binding                            = beryl_device.init
 ui_on_interaction                        = ui_beryl_device.start_dialog
