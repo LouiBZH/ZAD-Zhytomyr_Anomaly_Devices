@@ -1,6 +1,6 @@
 <w>
     <file name="ui\ui_placeable_items">
-        <!--  Radio  -->
+        <!--  Zhytomyr Devices  -->
         <texture id="ui_inGame2_zad_beryl_device" x="0" y="0" width="300" height="300"/>
         <texture id="ui_inGame2_zad_quartz_device" x="300" y="0" width="300" height="300"/>
         <texture id="ui_inGame2_zad_topaz_device" x="600" y="0" width="300" height="300"/>
