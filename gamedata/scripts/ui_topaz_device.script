@@ -1,5 +1,5 @@
 --[[
-    UI Beryl Device - Interaction dialog for Beryl Device
+    UI Topaz Device - Interaction dialog for Topaz Device
     Single-mode layout matching ui_trading_computer.script:
     - Artifact list shown directly on open
     - "Charge Artifact" button at bottom
@@ -12,9 +12,9 @@ local GUI = nil  -- singleton
 --------------------------------------------------------------------------------
 -- Main UI class
 --------------------------------------------------------------------------------
-class "UIBerylDevice" (CUIScriptWnd)
+class "UITopazDevice" (CUIScriptWnd)
 
-function UIBerylDevice:__init() super()
+function UITopazDevice:__init() super()
     self.obj_id = nil
     self.selected_data = nil
     self.artifact_data = {}  -- section -> {section, condition, object}
@@ -23,19 +23,19 @@ function UIBerylDevice:__init() super()
     self:InitCallbacks()
 end
 
-function UIBerylDevice:__finalize()
+function UITopazDevice:__finalize()
     GUI = nil
 end
 
 --------------------------------------------------------------------------------
 -- Initialize all UI controls from XML
 --------------------------------------------------------------------------------
-function UIBerylDevice:InitControls()
+function UITopazDevice:InitControls()
     self:SetWndRect(Frect():set(0, 0, 1024, 768))
     self:SetAutoDelete(true)
     
     local xml = CScriptXmlInit()
-    xml:ParseFile("ui_beryl_device_dialog")
+    xml:ParseFile("ui_topaz_device_dialog")
     
     self.back = xml:InitFrame("background", self)
     self.title_text = xml:InitStatic("title_text", self.back)
@@ -54,7 +54,7 @@ end
 --------------------------------------------------------------------------------
 -- Register button callbacks
 --------------------------------------------------------------------------------
-function UIBerylDevice:InitCallbacks()
+function UITopazDevice:InitCallbacks()
     self:AddCallback("btn_charge", ui_events.BUTTON_CLICKED, 
         self.OnCharge, self)
     self:AddCallback("btn_close", ui_events.BUTTON_CLICKED, 
@@ -66,7 +66,7 @@ end
 --------------------------------------------------------------------------------
 -- Keyboard handler (ESC to close)
 --------------------------------------------------------------------------------
-function UIBerylDevice:OnKeyboard(dik, keyboard_action)
+function UITopazDevice:OnKeyboard(dik, keyboard_action)
     local res = CUIScriptWnd.OnKeyboard(self, dik, keyboard_action)
     if res == false then
         if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
@@ -82,7 +82,7 @@ end
 --------------------------------------------------------------------------------
 -- Show the dialog
 --------------------------------------------------------------------------------
-function UIBerylDevice:TestAndShow(obj_id)
+function UITopazDevice:TestAndShow(obj_id)
     self.obj_id = obj_id
     self.selected_data = nil
     
@@ -96,24 +96,24 @@ function UIBerylDevice:TestAndShow(obj_id)
     pcall(function() self.btn_charge:Enable(false) end)
     
     pcall(function() self:ShowDialog(true) end)
-    pcall(function() Register_UI("UIBerylDevice", "ui_beryl_device") end)
+    pcall(function() Register_UI("UITopazDevice", "ui_topaz_device") end)
 end
 
 --------------------------------------------------------------------------------
 -- Update status text based on current device state
 --------------------------------------------------------------------------------
-function UIBerylDevice:UpdateStatusText()
+function UITopazDevice:UpdateStatusText()
     if not self.obj_id then return end
     
-    local state = beryl_device.get_device_state(self.obj_id)
-    local text_id = "st_zad_beryl_ui_status_idle"
+    local state = topaz_device.get_device_state(self.obj_id)
+    local text_id = "st_zad_topaz_ui_status_idle"
     
     if state == "charging" then
-        text_id = "st_zad_beryl_ui_status_charging"
+        text_id = "st_zad_topaz_ui_status_charging"
     elseif state == "cooldown" then
-        text_id = "st_zad_beryl_ui_status_cooldown"
+        text_id = "st_zad_topaz_ui_status_cooldown"
     elseif state == "ready" then
-        text_id = "st_zad_beryl_ui_status_ready"
+        text_id = "st_zad_topaz_ui_status_ready"
     end
     
     pcall(function() self.status_text:SetText(game.translate_string(text_id)) end)
@@ -134,7 +134,7 @@ end
 function artifact_item:__finalize()
 end
 
-function UIBerylDevice:AddArtifactEntry(entry)
+function UITopazDevice:AddArtifactEntry(entry)
     local item = artifact_item(22)
     item:SetWndSize(vector2():set(400, 22))
     item.art_section = entry.section
@@ -153,12 +153,12 @@ end
 --------------------------------------------------------------------------------
 -- Populate artifact list
 --------------------------------------------------------------------------------
-function UIBerylDevice:PopulateArtifactList()
+function UITopazDevice:PopulateArtifactList()
     self.artifact_list:RemoveAll()
     self.selected_data = nil
     self.artifact_data = {}
     
-    local artifacts = beryl_device.find_perk_artifacts_in_inventory() or {}
+    local artifacts = topaz_device.find_perk_artifacts_in_inventory() or {}
     
     for _, entry in ipairs(artifacts) do
         self.artifact_data[entry.section] = entry
@@ -173,7 +173,7 @@ end
 --------------------------------------------------------------------------------
 -- Get a human-readable name for an artifact
 --------------------------------------------------------------------------------
-function UIBerylDevice:GetArtifactDisplayName(obj, section)
+function UITopazDevice:GetArtifactDisplayName(obj, section)
     -- Use the section's localized name first (keys like st_af_generator_name)
     if section then
         local item_name = game.translate_string("st_" .. section .. "_name")
@@ -198,20 +198,20 @@ end
 --------------------------------------------------------------------------------
 
 -- Charge button clicked
-function UIBerylDevice:OnCharge()
+function UITopazDevice:OnCharge()
     if not self.selected_data or not self.obj_id then return end
     
     self:Close()
-    beryl_device.start_charging(self.obj_id, self.selected_data.section, self.selected_data.condition)
+    topaz_device.start_charging(self.obj_id, self.selected_data.section, self.selected_data.condition)
 end
 
 -- Close button clicked
-function UIBerylDevice:OnClose()
+function UITopazDevice:OnClose()
     self:Close()
 end
 
 -- An artifact was clicked in the list
-function UIBerylDevice:OnArtifactClicked()
+function UITopazDevice:OnArtifactClicked()
     local selected = self.artifact_list:GetSelectedItem()
     if not selected then return end
     
@@ -228,7 +228,7 @@ end
 --------------------------------------------------------------------------------
 -- Update called every frame while dialog is shown
 --------------------------------------------------------------------------------
-function UIBerylDevice:Update()
+function UITopazDevice:Update()
     CUIScriptWnd.Update(self)
     self:UpdateStatusText()
 end
@@ -236,12 +236,12 @@ end
 --------------------------------------------------------------------------------
 -- Close and cleanup
 --------------------------------------------------------------------------------
-function UIBerylDevice:Close()
+function UITopazDevice:Close()
     pcall(function()
         if self:IsShown() then
             self:HideDialog()
         end
-        Unregister_UI("UIBerylDevice")
+        Unregister_UI("UITopazDevice")
     end)
 end
 
@@ -249,7 +249,7 @@ end
 -- Entry point: called from ui_on_interaction
 --------------------------------------------------------------------------------
 function start_dialog(obj_id)
-    local state = beryl_device.get_device_state(obj_id)
+    local state = topaz_device.get_device_state(obj_id)
     
     -- If charging, block UI - tip text already shows "charging" on the device
     if state == "charging" then
@@ -257,11 +257,11 @@ function start_dialog(obj_id)
     end
     
     -- Always try to return any pending artifact first, regardless of state
-    local art_section, art_cond = beryl_device.get_artifact_info(obj_id)
+    local art_section, art_cond = topaz_device.get_artifact_info(obj_id)
     if art_section then
         -- If cooldown finished (ready state), return at original condition; otherwise full charge
         local ret_cond = (state == "ready") and art_cond or nil
-        beryl_device.return_artifact_to_player(obj_id, ret_cond)
+        topaz_device.return_artifact_to_player(obj_id, ret_cond)
         return
     end
     
@@ -271,12 +271,12 @@ function start_dialog(obj_id)
     end
     
     if GUI == nil then
-        GUI = UIBerylDevice()
+        GUI = UITopazDevice()
     end
     
     if GUI:IsShown() then
         GUI:Close()
-        GUI = UIBerylDevice()
+        GUI = UITopazDevice()
     end
     
     GUI:TestAndShow(obj_id)

@@ -2,13 +2,62 @@
 <string_table>
 	<!-- Topaz Device -->
 	<string id="st_zad_device_topaz_name">
-		<text>Topaz Device</text>
+		<text>TOPAZ-2M Scanner</text>
 	</string>
 	<string id="st_zad_device_topaz_short">
 		<text>Topaz</text>
 	</string>
 	<string id="st_zad_device_topaz_desc">
-		<text>An experimental anomaly study device. Use with caution.</text>
+		<text>An experimental anomalous study device designed to recharge perk artifacts. Select a perk artifact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.</text>
+	</string>
+
+	<!-- Topaz Device UI Messages -->
+	<string id="st_zad_topaz_no_artifacts">
+		<text>No perk artifacts found in inventory.</text>
+	</string>
+	<string id="st_zad_topaz_charging">
+		<text>TOPAZ-2M Scanner is charging. Stand clear!</text>
+	</string>
+	<string id="st_zad_topaz_complete">
+		<text>Recharge complete.</text>
+	</string>
+	<string id="st_zad_topaz_cooldown">
+		<text>TOPAZ-2M Scanner is on cooldown. Please wait...</text>
+	</string>
+	<string id="st_zad_topaz_retrieve">
+		<text>Retrieve artifact.</text>
+	</string>
+	<string id="st_zad_topaz_retrieved">
+		<text>Artifact recharged successfully.</text>
+	</string>
+	<string id="st_zad_topaz_busy">
+		<text>TOPAZ-2M Scanner is busy charging an artifact.</text>
+	</string>
+
+	<!-- Topaz Device UI Dialog Strings -->
+	<string id="st_zad_topaz_select_artifact">
+		<text>Select Perk Artifact</text>
+	</string>
+	<string id="st_zad_topaz_pickup">
+		<text>Pick Up Device</text>
+	</string>
+	<string id="st_zad_topaz_select_header">
+		<text>Select a perk artifact to recharge:</text>
+	</string>
+	<string id="st_zad_topaz_charge_artifact">
+		<text>Charge Artifact</text>
+	</string>
+	<string id="st_zad_topaz_ui_status_idle">
+		<text>Device ready. Select an artifact to start the scanning process.</text>
+	</string>
+	<string id="st_zad_topaz_ui_status_charging">
+		<text>Device is charging. Please wait...</text>
+	</string>
+	<string id="st_zad_topaz_ui_status_cooldown">
+		<text>Device is on cooldown. Please wait...</text>
+	</string>
+	<string id="st_zad_topaz_ui_status_ready">
+		<text>Recharge complete! Pick up to retrieve your artifact.</text>
 	</string>
 
 	<!-- Quartz Device -->
@@ -19,7 +68,7 @@
 		<text>Quartz</text>
 	</string>
 	<string id="st_zad_device_quartz_desc">
-		<text>An experimental anomaly study device. Use with caution.</text>
+		<text>An experimental anomalous study device. Use with caution.</text>
 	</string>
 
 	<!-- Beryl Device -->
@@ -30,7 +79,7 @@
 		<text>Beryl</text>
 	</string>
 	<string id="st_zad_device_beryl_desc">
-		<text>An experimental anomaly study device designed to recharge perk artifacts. Select a perk artifact from your inventory and the device will restore it to full condition over 1 minute.</text>
+		<text>An experimental anomalous study device. Use with caution.</text>
 	</string>
 
 	<!-- Beryl Device UI Messages -->

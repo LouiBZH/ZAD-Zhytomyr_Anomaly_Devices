@@ -1,5 +1,5 @@
 --[[
-    Beryl Device - Perk Artifact Recharger
+    Topaz Device - Perk Artifact Recharger
 
     Follows HF Gadgets pattern: 
     - State via hf_obj_manager (not wrapper variables)
@@ -81,7 +81,7 @@ function start_charging(obj_id, section, condition)
     local data = get_data(obj_id)
     if data.cooldown_timer and data.cooldown_timer > 0 then
         if actor then
-            actor:give_talk_message("st_zad_beryl_cooldown", nil, nil, nil, nil)
+            actor:give_talk_message("st_zad_topaz_cooldown", nil, nil, nil, nil)
         end
         return
     end
@@ -154,7 +154,7 @@ function return_artifact_to_player(obj_id, cond)
         obj:set_tip_text(game.translate_string("st_interact"))
     end
 
-    actor:give_talk_message("st_zad_beryl_retrieved", nil, nil, nil, nil)
+    actor:give_talk_message("st_zad_topaz_retrieved", nil, nil, nil, nil)
 end
 
 function get_anomaly_type_for_artifact(section)
@@ -185,7 +185,7 @@ end
 -- Init function for script_binding in LTX
 --------------------------------------------------------------------------------
 function init(obj)
-    obj:bind_object(beryl_device_wrapper(obj).binder)
+    obj:bind_object(topaz_device_wrapper(obj).binder)
 end
 
 --------------------------------------------------------------------------------
@@ -193,9 +193,9 @@ end
 -- Uses standard base_binder (via super(obj)) -- no custom binder,
 -- interaction is handled entirely through ui_on_interaction LTX property.
 --------------------------------------------------------------------------------
-class "beryl_device_wrapper" (bind_hf_base.hf_binder_wrapper)
+class "topaz_device_wrapper" (bind_hf_base.hf_binder_wrapper)
 
-function beryl_device_wrapper:__init(obj) super(obj)
+function topaz_device_wrapper:__init(obj) super(obj)
 
     self.anomaly_radius = 30
     self.anomaly_count = 30
@@ -205,6 +205,7 @@ function beryl_device_wrapper:__init(obj) super(obj)
     self.cooldown_sound = nil
     self.charge_stage = 0
     self.field_spawned = false
+    self.psy_spawned = false
 
     local id = self.object:id()
     local data = get_data(id)
@@ -221,7 +222,7 @@ function beryl_device_wrapper:__init(obj) super(obj)
     self.object:set_tip_text(game.translate_string("st_interact"))
 end
 
-function beryl_device_wrapper:update(delta)
+function topaz_device_wrapper:update(delta)
     -- Convert delta to seconds (engine passes milliseconds, see alarm_system_wrapper pattern)
     local dt = delta
     if dt > 1.0 then dt = dt / 1000.0 end
@@ -278,7 +279,7 @@ function beryl_device_wrapper:update(delta)
             end
             local cpos = self.object:position()
             if cpos then
-                local ok_cd, cd_snd = pcall(function() return sound_object("zad\\beryl_cd") end)
+                local ok_cd, cd_snd = pcall(function() return sound_object("zad\\topaz_cd") end)
                 if ok_cd and cd_snd then
                     self.cooldown_sound = cd_snd
                     pcall(function()
@@ -288,7 +289,7 @@ function beryl_device_wrapper:update(delta)
                 end
             end
 
-            self.object:set_tip_text(game.translate_string("st_zad_beryl_cooldown"))
+            self.object:set_tip_text(game.translate_string("st_zad_topaz_cooldown"))
         else
             set_data(id, { charge_timer = data.charge_timer })
         end
@@ -315,19 +316,19 @@ function beryl_device_wrapper:update(delta)
                 original_condition = data.original_condition
             })
 
-            self.object:set_tip_text(game.translate_string("st_zad_beryl_retrieve"))
+            self.object:set_tip_text(game.translate_string("st_zad_topaz_retrieve"))
         else
             set_data(id, { cooldown_timer = data.cooldown_timer })
         end
     end
 end
 
-function beryl_device_wrapper:start_charging_effects()
+function topaz_device_wrapper:start_charging_effects()
     local device_pos = self.object:position()
 
     -- Start the looping charge sound
     if device_pos then
-        local ok_snd, snd = pcall(function() return sound_object("zad\\beryl_charging") end)
+        local ok_snd, snd = pcall(function() return sound_object("zad\\topaz_charging") end)
         if ok_snd and snd then
             self.charge_sound = snd
             self.charge_sound_pos = device_pos
@@ -341,15 +342,19 @@ function beryl_device_wrapper:start_charging_effects()
     -- Reset staged anomaly spawning tracking
     self.charge_stage = 0
     self.field_spawned = false
+    self.psy_spawned = false
 
-    pcall(function() self.object:set_tip_text(game.translate_string("st_zad_beryl_charging")) end)
+    -- Spawn psy field right on top of the device
+    self:spawn_psy_field()
+
+    pcall(function() self.object:set_tip_text(game.translate_string("st_zad_topaz_charging")) end)
 end
 
 --------------------------------------------------------------------------------
 -- Spawn anomalies for a specific ring stage (2m min offset from device)
 -- stage 0: 2-7m, 1: 7-12m, 2: 12-17m, 3: 17-22m, 4: 22-27m, 5: 27-32m
 --------------------------------------------------------------------------------
-function beryl_device_wrapper:spawn_charge_stage(stage)
+function topaz_device_wrapper:spawn_charge_stage(stage)
     local device_pos = self.object:position()
     if not device_pos then return end
 
@@ -448,7 +453,7 @@ end
 --------------------------------------------------------------------------------
 -- Spawn the field zone at device position (triggered at t=30)
 --------------------------------------------------------------------------------
-function beryl_device_wrapper:spawn_field_zone()
+function topaz_device_wrapper:spawn_field_zone()
     local device_pos = self.object:position()
     if not device_pos then return end
 
@@ -492,7 +497,52 @@ function beryl_device_wrapper:spawn_field_zone()
     self.field_spawned = true
 end
 
-function beryl_device_wrapper:stop_charging_effects()
+--------------------------------------------------------------------------------
+-- Spawn psy field anomaly right on top of the device
+--------------------------------------------------------------------------------
+function topaz_device_wrapper:spawn_psy_field()
+    local device_pos = self.object:position()
+    if not device_pos then return end
+
+    local alife_obj = alife()
+    if not alife_obj then return end
+
+    local lvid = level.vertex_id(device_pos)
+    local gvid = self.object:game_vertex_id()
+
+    -- Adjust psy field Y to ground level
+    local psy_pos = vector():set(device_pos.x, device_pos.y, device_pos.z)
+    pcall(function()
+        local v_pos = level.vertex_position(lvid)
+        if v_pos then
+            psy_pos.y = v_pos.y
+        end
+    end)
+
+    local psy_type = "zone_field_psychic_weak"
+    if SYS_GetParam(0, psy_type, "class", "") == "" then return end
+
+    local se_psy = alife_obj:create(psy_type, psy_pos, lvid, gvid)
+    if not se_psy then return end
+
+    -- Initialize zone shape data
+    pcall(function()
+        local zdata = utils_stpk.get_anom_zone_data(se_psy)
+        if zdata then
+            zdata.shapes[1] = zdata.shapes[1] or {}
+            zdata.shapes[1].shtype = 0
+            zdata.shapes[1].offset = vector():set(0, 0, 0)
+            zdata.shapes[1].center = vector():set(0, 0, 0)
+            zdata.shapes[1].radius = 1.0
+            utils_stpk.set_anom_zone_data(zdata, se_psy)
+        end
+    end)
+
+    table.insert(self.anomaly_ids, se_psy.id)
+    self.psy_spawned = true
+end
+
+function topaz_device_wrapper:stop_charging_effects()
     -- Disable anomalies via game object (matching DAO pattern), then release
     local alife_obj = alife()
     for _, id in ipairs(self.anomaly_ids) do
@@ -523,7 +573,7 @@ function beryl_device_wrapper:stop_charging_effects()
     end
 end
 
-function beryl_device_wrapper:play_sound(path)
+function topaz_device_wrapper:play_sound(path)
     local ok, snd = pcall(function() return sound_object(path) end)
     if ok and snd then
         local pos = self.object:position()
@@ -534,7 +584,7 @@ function beryl_device_wrapper:play_sound(path)
     return ok and snd or nil
 end
 
-function beryl_device_wrapper:net_spawn(se_abstract)
+function topaz_device_wrapper:net_spawn(se_abstract)
     if not self.object then return false end
     local ok = true
     if bind_hf_base.hf_binder_wrapper.net_spawn then
@@ -548,7 +598,7 @@ function beryl_device_wrapper:net_spawn(se_abstract)
     return true
 end
 
-function beryl_device_wrapper:net_destroy()
+function topaz_device_wrapper:net_destroy()
     if not self.object then return end
     self:stop_charging_effects()
 
@@ -560,7 +610,7 @@ end
 --------------------------------------------------------------------------------
 -- Prevent pickup while charging or when an artifact hasn't been retrieved
 --------------------------------------------------------------------------------
-function beryl_device_wrapper:pickup()
+function topaz_device_wrapper:pickup()
     local id = self.object:id()
     local data = get_data(id)
     local state = data.device_state or "idle"
@@ -568,7 +618,7 @@ function beryl_device_wrapper:pickup()
     -- Cannot pick up while charging
     if state == "charging" then
         if db.actor then
-            db.actor:give_talk_message("st_zad_beryl_charging", nil, nil, nil, nil)
+            db.actor:give_talk_message("st_zad_topaz_charging", nil, nil, nil, nil)
         end
         return false
     end
@@ -576,7 +626,7 @@ function beryl_device_wrapper:pickup()
     -- Cannot pick up if there's an artifact waiting to be retrieved
     if data.artifact_section then
         if db.actor then
-            db.actor:give_talk_message("st_zad_beryl_retrieve", nil, nil, nil, nil)
+            db.actor:give_talk_message("st_zad_topaz_retrieve", nil, nil, nil, nil)
         end
         return false
     end

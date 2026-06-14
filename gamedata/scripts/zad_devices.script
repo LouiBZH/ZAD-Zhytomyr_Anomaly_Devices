@@ -22,7 +22,8 @@ function init_device_registry()
     device_registry[DEVICE_TOPAZ] = {
         name = "Topaz",
         placed_section = "placeable_zad_device_topaz",
-        active = false
+        active = false,
+        wrapper_class = "topaz_device_wrapper"
     }
     device_registry[DEVICE_QUARTZ] = {
         name = "Quartz",
@@ -32,8 +33,7 @@ function init_device_registry()
     device_registry[DEVICE_BERYL] = {
         name = "Beryl",
         placed_section = "placeable_zad_device_beryl",
-        active = false,
-        wrapper_class = "beryl_device_wrapper"
+        active = false
     }
     
     registry_initialized = true

@@ -3,7 +3,7 @@
 ; Exact copy of radio_item structure from HF for compatibility
 ;===============================================================================
 
-; Topaz Device (inventory item)
+; Topaz Device - Perk Artifact Recharger (inventory item)
 [zad_device_topaz]:tch_junk
 class                                    = II_ATTACH
 kind                                    = i_tool
@@ -20,9 +20,9 @@ cost                                    = 5000
 icons_texture                            = ui\zad\ui_zad
 
 use1_functor                            = placeable_furniture.place_item
-use1_action_functor                        = placeable_furniture.func_place_item
-placeable_type                            = prop
-placeable_section                        = placeable_zad_device_topaz
+use1_action_functor                     = placeable_furniture.func_place_item
+placeable_type                          = prop
+placeable_section                       = placeable_zad_device_topaz
 
 tier                                    = 3
 
@@ -76,11 +76,13 @@ tier                                    = 1
 ; PLACED WORLD OBJECTS
 ;===============================================================================
 
-; Topaz Device (placed)
+; Topaz Device (placed) - Perk Artifact Recharger
 [placeable_zad_device_topaz]:physic_object
 visual                                    = zad\topaz_device.ogf
-inv_weight                                = 1.0
-script_binding                            = bind_hf_base.init
+placeable_type                            = prop
+script_binding                            = topaz_device.init
+ui_on_interaction                        = ui_topaz_device.start_dialog
+ui_on_simple_interaction                = ui_topaz_device.start_dialog
 item_section                            = zad_device_topaz
 bounding_box_size                        = 0.446506, 0.593599, 1.03146
 bounding_box_origin                        = 0, 0.515729, 0.073609
@@ -94,13 +96,11 @@ item_section                            = zad_device_quartz
 bounding_box_size                        = 0.446506, 0.593599, 1.03146
 bounding_box_origin                        = 0, 0.515729, 0.073609
 
-; Beryl Device (placed) - Perk Artifact Recharger
+; Beryl Device (placed) - reserved for future use
 [placeable_zad_device_beryl]:physic_object
 visual                                    = zad\topaz_device.ogf
-placeable_type                            = prop
-script_binding                            = beryl_device.init
-ui_on_interaction                        = ui_beryl_device.start_dialog
-ui_on_simple_interaction                = ui_beryl_device.start_dialog
+inv_weight                                = 1.0
+script_binding                            = bind_hf_base.init
 item_section                            = zad_device_beryl
 bounding_box_size                        = 0.446506, 0.593599, 1.03146
 bounding_box_origin                        = 0, 0.515729, 0.073609
