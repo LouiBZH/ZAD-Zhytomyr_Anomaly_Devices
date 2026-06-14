@@ -38,7 +38,7 @@ local function condition_to_color(condition)
         b = 0
     end
 
-    return 0xFF000000 | (r << 16) | (g << 8) | b
+    return 0xFF000000 + r * 65536 + g * 256 + b
 end
 
 --------------------------------------------------------------------------------
