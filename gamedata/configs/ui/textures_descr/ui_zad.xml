@@ -1,8 +1,0 @@
-<w>
-    <file name="ui\zad\ui_zad">
-        <!--  Zhytomyr Devices  -->
-        <texture id="ui_inGame2_zad_beryl_device" x="0" y="0" width="100" height="200"/>
-        <texture id="ui_inGame2_zad_topaz_device" x="100" y="0" width="100" height="200"/>
-        <texture id="ui_inGame2_zad_quartz_device" x="200" y="0" width="100" height="200"/>
-</file>
-</w>
