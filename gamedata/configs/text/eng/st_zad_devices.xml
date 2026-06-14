@@ -8,7 +8,7 @@
 		<text>Topaz</text>
 	</string>
 	<string id="st_zad_device_topaz_desc">
-		<text>An experimental anomalous study device designed to recharge perk artifacts. Select a perk artifact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.</text>
+		<text>An experimental anomalous study device designed to recharge perk artifacts. Once placed, select a perk artifact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.</text>
 	</string>
 
 	<!-- Topaz Device UI Messages -->

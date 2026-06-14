@@ -1,6 +1,5 @@
 --[[
-    UI Topaz Device - Interaction dialog for Topaz Device
-    Single-mode layout matching ui_trading_computer.script:
+    UI Topaz Device - Interaction dialog for Topaz Scanner
     - Artifact list shown directly on open
     - "Charge Artifact" button at bottom
     - "Close" button at bottom

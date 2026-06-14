@@ -1,5 +1,5 @@
 --[[
-    Topaz Device - Perk Artifact Recharger
+    Topaz Scanner - Perk Artifact Recharger
 
     Follows HF Gadgets pattern: 
     - State via hf_obj_manager (not wrapper variables)
@@ -9,7 +9,7 @@
     State machine: idle → charging (60s) → cooldown → ready → idle
 ]]
 
--- State helpers (mirrors bind_trading_computer pattern)
+-- State helpers
 local function get_data(obj_id)
     if not obj_id or not hf_obj_manager then return {} end
     return hf_obj_manager.get_data(obj_id) or {}
@@ -233,7 +233,7 @@ function topaz_device_wrapper:__init(obj) super(obj)
 end
 
 function topaz_device_wrapper:update(delta)
-    -- Convert delta to seconds (engine passes milliseconds, see alarm_system_wrapper pattern)
+    -- Convert delta to seconds (engine passes milliseconds)
     local dt = delta
     if dt > 1.0 then dt = dt / 1000.0 end
     

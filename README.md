@@ -2,60 +2,48 @@
 
 ## Project Overview
 
-ZAD is a mod for Stalker Anomaly that adds three experimental devices for anomaly study and artifact manipulation, inspired by the Topaz Device from Stalker 2:
+ZAD is a mod for Stalker Anomaly that adds three experimental devices for anomalous study and artifact manipulation, inspired by the TOPAZ-2M Scanner from Stalker 2:
 
-- **Topaz Device** — Primary anomaly study device (placeholder)
-- **Quartz Device** — Secondary variant (placeholder)
-- **Beryl Device** — Perk Artifact Recharger ✅ (fully implemented)
+- **Quartz Device** — Upcoming
+- **TOPAZ-1M Scanner** — Perk Artifact Recharger ✅ (fully implemented)
+- **Beryl Device** — Upcoming
 
 All devices use the **Hideout Furniture** placement system ([Aoldri/anomaly-hf](https://github.com/Aoldri/anomaly-hf)).
 
-## Beryl Device — Perk Artifact Recharger
+## Quartz Device — Anomaly artifact scanner
 
-The Beryl device recharges perk artifacts ([themrdemonized/STALKER-Anomaly-Perk-Based-Artefacts](https://github.com/themrdemonized/STALKER-Anomaly-Perk-Based-Artefacts)).
+A device that you'll be able to place in any major anomaly field, and will warn you when an artifact spawns in it, and show you its nature.
 
-### How It Works
+## TOPAZ-1M Scanner — Perk Artifact Recharger
 
-1. **Place** the Beryl device in the world using HF's placement system
-2. **Interact** (F key) → opens the device UI
-3. Click **"Select Perk Artifact"** → choose an artifact from the list
-4. Artifact is removed from inventory, device **charges for 60 seconds**:
-   - Real anomaly objects spawn in a 20m ring around the device (DAO-based)
-   - Looping charge sound plays
-   - Anomalies pulse visually every 5 seconds
-5. **After 60s**: anomalies are released, artifact condition = 100%
-6. **Device cooldown**: depends on original condition (30-150s)
-7. **Interact again**: retrieve the recharged artifact at full condition
+An experimental anomalous study device designed to recharge perk artifacts. Once placed, select a perk artifact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.
 
-### State Machine
+## Beryl Device — Anomaly stimulator
 
-```
-idle → charging (60s) → cooldown (30-150s) → ready → idle
-```
+A device that you'll be able to place in any major anomaly field, allowing you to feed it an artifact and force the anomaly to spawn an artifact from its pool. The rarer the artifact you sacrifice, the better the reward. But in the end, it'll all come down to luck...
 
-## Current Status
+## Requirements
 
-- ✅ Mod structure initialized
-- ✅ Item configurations (inventory + placed world objects)
-- ✅ Localization framework set up
-- ✅ Beryl device fully implemented (HF wrapper class)
-- ⏳ Topaz/Quartz device logic (basic placeholders only)
-- ⏳ Model creation/import from Stalker 2
-- ⏳ Artifact selection UI (currently auto-selects)
+**Hideout Furniture** ([anomaly-hf](https://github.com/Aoldri/anomaly-hf))
+**Perk-Based Artefacts** ([STALKER-Anomaly-Perk-Based-Artefacts](https://github.com/themrdemonized/STALKER-Anomaly-Perk-Based-Artefacts))
+**Dynamic Anomalies Overhaul** (https://github.com/themrdemonized/Dynamic-Anomalies-Overhaul)
+Latest modded exes for DLTX
+Tested on GAMMA, which includes all these natively. Should work on Anomaly 1.5.3 with those prerequisites.
 
 ## Installation
 
-1. Requires **Hideout Furniture** mod ([anomaly-hf](https://github.com/Aoldri/anomaly-hf))
-2. Requires **Perk-Based Artefacts** mod ([STALKER-Anomaly-Perk-Based-Artefacts](https://github.com/themrdemonized/STALKER-Anomaly-Perk-Based-Artefacts))
-3. Copy the mod folder to your Anomaly `mods` directory
-4. Enable in Anomaly's mod manager (ensure HF loads first)
-5. Restart Anomaly
+Drop in MO2 at any priority, there should be no overwrites
+
+## To do
+
+- 
+- 
+
 
 ## Technical Details
 
 - **Engine**: xray-monolith
 - **Base Format**: Anomaly mod structure + HF placement
-- **Placeholder Model**: `equipments\devices\radio\radio.ogf` (from hideout furniture)
 - **Script System**: HF `bind_hf_base.hf_binder_wrapper` extension
 - **Language Support**: English (expandable)
 - Some references :
@@ -64,7 +52,3 @@ idle → charging (60s) → cooldown (30-150s) → ready → idle
    - X-Ray engine documentation in russian : https://xray-engine.org/index.php?title=%D0%97%D0%B0%D0%B3%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F_%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D0%B0
    - Stalker GAMMA github : https://github.com/Grokitach/Stalker_GAMMA
    - Dynamic Anomalies Overhaul : https://github.com/themrdemonized/Dynamic-Anomalies-Overhaul
-
-## File Structure
-
-See `gamedata/README.md` for detailed directory layout.
