@@ -10,6 +10,38 @@
 local GUI = nil  -- singleton
 
 --------------------------------------------------------------------------------
+-- Color helper: condition (0.0–1.0) → ARGB color
+-- Gradient: red → orange → yellow → green
+--------------------------------------------------------------------------------
+local function condition_to_color(condition)
+    local t = math.max(0, math.min(1, condition))
+
+    local r, g, b
+
+    if t <= 0.333 then
+        -- Red → Orange  (0% – 33%)
+        local s = t / 0.333
+        r = 255
+        g = math.floor(165 * s)
+        b = 0
+    elseif t <= 0.666 then
+        -- Orange → Yellow  (33% – 66%)
+        local s = (t - 0.333) / 0.333
+        r = 255
+        g = math.floor(165 + (255 - 165) * s)
+        b = 0
+    else
+        -- Yellow → Green  (66% – 100%)
+        local s = (t - 0.666) / 0.334
+        r = math.floor(255 * (1 - s))
+        g = 255
+        b = 0
+    end
+
+    return 0xFF000000 | (r << 16) | (g << 8) | b
+end
+
+--------------------------------------------------------------------------------
 -- Main UI class
 --------------------------------------------------------------------------------
 class "UITopazDevice" (CUIScriptWnd)
@@ -141,11 +173,16 @@ function UITopazDevice:AddArtifactEntry(entry)
 
     local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
     local condition_pct = math.floor(entry.condition * 100)
-    local txt = art_name .. " [" .. condition_pct .. "%]"
+    local prefix = entry.on_belt and "[BELT] " or ""
+    local txt = prefix .. art_name .. " [" .. condition_pct .. "%]"
     
     item.txt:SetWndPos(vector2():set(0, 0))
     item.txt:SetWndSize(vector2():set(400, 22))
     pcall(function() item.txt:SetText(txt) end)
+
+    -- Set text color based on artifact condition
+    local color = condition_to_color(entry.condition)
+    pcall(function() item.txt:SetTextColor(color) end)
 
     self.artifact_list:AddExistingItem(item)
 end
@@ -159,6 +196,14 @@ function UITopazDevice:PopulateArtifactList()
     self.artifact_data = {}
     
     local artifacts = topaz_device.find_perk_artifacts_in_inventory() or {}
+    
+    -- Sort: belt artifacts first, then by condition descending
+    table.sort(artifacts, function(a, b)
+        if a.on_belt ~= b.on_belt then
+            return a.on_belt  -- belt artifacts come first
+        end
+        return a.condition > b.condition  -- highest condition first
+    end)
     
     for _, entry in ipairs(artifacts) do
         self.artifact_data[entry.section] = entry

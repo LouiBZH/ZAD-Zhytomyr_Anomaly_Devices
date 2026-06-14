@@ -52,10 +52,14 @@ function find_perk_artifacts_in_inventory()
             
             local ok_cond, condition = pcall(function() return item:condition() end)
             
+            local ok_slot, slot = pcall(function() return item:slot() end)
+            local on_belt = ok_slot and (slot == 2)  -- belt slot is index 2
+            
             table.insert(result, {
                 object = item,
                 section = section,
-                condition = (ok_cond and condition) or 1.0
+                condition = (ok_cond and condition) or 1.0,
+                on_belt = on_belt
             })
         end, actor)
     end)
