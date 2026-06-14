@@ -40,6 +40,14 @@ function find_perk_artifacts_in_inventory()
     local actor = get_actor()
     if not actor then return {} end
 
+    -- Build a set of belt item IDs
+    local belt_ids = {}
+    pcall(function()
+        actor:iterate_belt(function(owner, arty)
+            belt_ids[arty:id()] = true
+        end)
+    end)
+
     local result = {}
     
     pcall(function()
@@ -52,9 +60,7 @@ function find_perk_artifacts_in_inventory()
             
             local ok_cond, condition = pcall(function() return item:condition() end)
             
-            local ok_slot, slot = pcall(function() return item:slot() end)
-            local on_belt = ok_slot and (slot == 2)  -- belt slot is index 2
-            
+            local on_belt = belt_ids[item:id()] == true
             table.insert(result, {
                 object = item,
                 section = section,
