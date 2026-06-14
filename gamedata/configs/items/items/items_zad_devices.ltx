@@ -1,6 +1,5 @@
 ============================================================================
 ; ZAD Devices - Item configurations
-; Exact copy of radio_item structure from HF for compatibility
 ;===============================================================================
 
 ; Topaz Device - Perk Artifact Recharger (inventory item)
@@ -11,12 +10,12 @@ visual                                    = zad\topaz_device.ogf
 inv_name                                = st_zad_device_topaz_name
 inv_name_short                            = st_zad_device_topaz_short
 description                                = st_zad_device_topaz_desc
-inv_weight                                = 1.0
+inv_weight                                = 10.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
 inv_grid_x                                = 2
-inv_grid_y                                = 0
-cost                                    = 5000
+inv_grid_y                                = 1
+cost                                    = 50000
 icons_texture                            = ui\zad\ui_zad
 
 use1_functor                            = placeable_furniture.place_item
@@ -24,7 +23,7 @@ use1_action_functor                     = placeable_furniture.func_place_item
 placeable_type                          = prop
 placeable_section                       = placeable_zad_device_topaz
 
-tier                                    = 3
+tier                                    = 2
 
 ; Quartz Device (inventory item)
 [zad_device_quartz]:tch_junk
@@ -34,12 +33,12 @@ visual                                    = zad\topaz_device.ogf
 inv_name                                = st_zad_device_quartz_name
 inv_name_short                            = st_zad_device_quartz_short
 description                                = st_zad_device_quartz_desc
-inv_weight                                = 1.0
+inv_weight                                = 10.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
-inv_grid_x                                = 1
-inv_grid_y                                = 0
-cost                                    = 5000
+inv_grid_x                                = 3
+inv_grid_y                                = 1
+cost                                    = 100000
 icons_texture                            = ui\zad\ui_zad
 
 use1_functor                            = placeable_furniture.place_item
@@ -47,7 +46,7 @@ use1_action_functor                        = placeable_furniture.func_place_item
 placeable_type                            = prop
 placeable_section                        = placeable_zad_device_quartz
 
-tier                                    = 2
+tier                                    = 3
 
 ; Beryl Device - Perk Artifact Recharger (inventory item)
 [zad_device_beryl]:tch_junk
@@ -57,12 +56,12 @@ visual                                    = zad\topaz_device.ogf
 inv_name                                = st_zad_device_beryl_name
 inv_name_short                            = st_zad_device_beryl_short
 description                                = st_zad_device_beryl_desc
-inv_weight                                = 1.0
+inv_weight                                = 10.0
 inv_grid_width                            = 2
 inv_grid_height                            = 2
-inv_grid_x                                = 0
-inv_grid_y                                = 0
-cost                                    = 5000
+inv_grid_x                                = 1
+inv_grid_y                                = 1
+cost                                    = 20000
 icons_texture                            = ui\zad\ui_zad
 
 use1_functor                            = placeable_furniture.place_item

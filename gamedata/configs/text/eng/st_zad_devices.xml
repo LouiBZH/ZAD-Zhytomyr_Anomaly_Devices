@@ -2,7 +2,7 @@
 <string_table>
 	<!-- Topaz Device -->
 	<string id="st_zad_device_topaz_name">
-		<text>TOPAZ-2M Scanner</text>
+		<text>TOPAZ-1M Scanner</text>
 	</string>
 	<string id="st_zad_device_topaz_short">
 		<text>Topaz</text>
@@ -16,13 +16,13 @@
 		<text>No perk artifacts found in inventory.</text>
 	</string>
 	<string id="st_zad_topaz_charging">
-		<text>TOPAZ-2M Scanner is charging. Stand clear!</text>
+		<text>TOPAZ-1M Scanner is charging. Stand clear!</text>
 	</string>
 	<string id="st_zad_topaz_complete">
 		<text>Recharge complete.</text>
 	</string>
 	<string id="st_zad_topaz_cooldown">
-		<text>TOPAZ-2M Scanner is on cooldown. Please wait...</text>
+		<text>TOPAZ-1M Scanner is on cooldown. Please wait...</text>
 	</string>
 	<string id="st_zad_topaz_retrieve">
 		<text>Retrieve artifact.</text>
@@ -31,7 +31,7 @@
 		<text>Artifact recharged successfully.</text>
 	</string>
 	<string id="st_zad_topaz_busy">
-		<text>TOPAZ-2M Scanner is busy charging an artifact.</text>
+		<text>TOPAZ-1M Scanner is busy charging an artifact.</text>
 	</string>
 
 	<!-- Topaz Device UI Dialog Strings -->
