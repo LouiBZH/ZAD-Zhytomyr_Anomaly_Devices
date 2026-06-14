@@ -1,5 +1,5 @@
 --[[
-    Topaz Scanner - Perk Artifact Recharger
+    Topaz Scanner - Perk Artefact Recharger
 
     Follows HF Gadgets pattern: 
     - State via hf_obj_manager (not wrapper variables)
@@ -28,7 +28,7 @@ end
 -- Business logic functions (standalone, called by wrapper & UI)
 --------------------------------------------------------------------------------
 
-function is_perk_artifact(item)
+function is_perk_artefact(item)
     if not item then return false end
     local ok_sec, section = pcall(function() return item:section() end)
     if not ok_sec or not section then return false end
@@ -36,7 +36,7 @@ function is_perk_artifact(item)
     return kind == "i_arty_junk"
 end
 
-function find_perk_artifacts_in_inventory()
+function find_perk_artefacts_in_inventory()
     local actor = get_actor()
     if not actor then return {} end
 
@@ -53,7 +53,7 @@ function find_perk_artifacts_in_inventory()
     pcall(function()
         actor:iterate_inventory(function(npc, item)
             if not item then return end
-            if not is_perk_artifact(item) then return end
+            if not is_perk_artefact(item) then return end
             
             local ok_sec, section = pcall(function() return item:section() end)
             if not ok_sec or not section then return end
@@ -78,9 +78,9 @@ function get_device_state(obj_id)
     return data.device_state or "idle"
 end
 
-function get_artifact_info(obj_id)
+function get_artefact_info(obj_id)
     local data = get_data(obj_id)
-    return data.artifact_section, data.original_condition
+    return data.artefact_section, data.original_condition
 end
 
 function start_charging(obj_id, section, condition)
@@ -96,7 +96,7 @@ function start_charging(obj_id, section, condition)
         return
     end
 
-    -- Find the artifact first, then remove it (iterate_inventory breaks if you remove during iteration)
+    -- Find the artefact first, then remove it (iterate_inventory breaks if you remove during iteration)
     local found_item = nil
     actor:iterate_inventory(function(npc, item)
         if found_item then return end
@@ -119,7 +119,7 @@ function start_charging(obj_id, section, condition)
         device_state = "charging",
         charge_timer = 60,
         cooldown_timer = 0,
-        artifact_section = section,
+        artefact_section = section,
         original_condition = condition or 1.0
     })
 
@@ -132,17 +132,17 @@ function start_charging(obj_id, section, condition)
     end
 end
 
-function return_artifact_to_player(obj_id, cond)
+function return_artefact_to_player(obj_id, cond)
     local actor = get_actor()
     if not actor then return end
 
     local data = get_data(obj_id)
-    local section = data.artifact_section
+    local section = data.artefact_section
     if not section then return end
 
     alife_create_item(section, actor, {cond = cond or 1.0})
 
-    -- Clean up anomalies before returning artifact
+    -- Clean up anomalies before returning artefact
     local obj = level.object_by_id(obj_id)
     if obj then
         local binder = obj:binded_object()
@@ -155,7 +155,7 @@ function return_artifact_to_player(obj_id, cond)
         hf_obj_manager.set_data(obj_id, {
             device_state = "idle",
             charge_timer = 0,
-            artifact_section = nil,
+            artefact_section = nil,
             original_condition = nil
         })
     end
@@ -167,7 +167,7 @@ function return_artifact_to_player(obj_id, cond)
     actor:give_talk_message("st_zad_topaz_retrieved", nil, nil, nil, nil)
 end
 
-function get_anomaly_type_for_artifact(section)
+function get_anomaly_type_for_artefact(section)
     if not section then return "zone_mine_electric", "zone_field_radioactive" end
 
     local ini = system_ini()
@@ -224,7 +224,7 @@ function topaz_device_wrapper:__init(obj) super(obj)
             device_state = "idle",
             charge_timer = 0,
             cooldown_timer = 0,
-            artifact_section = nil,
+            artefact_section = nil,
             original_condition = nil
         })
     end
@@ -277,7 +277,7 @@ function topaz_device_wrapper:update(delta)
                 device_state = "cooldown",
                 charge_timer = 0,
                 cooldown_timer = cooldown,
-                artifact_section = data.artifact_section,
+                artefact_section = data.artefact_section,
                 original_condition = orig_cond
             })
 
@@ -322,7 +322,7 @@ function topaz_device_wrapper:update(delta)
                 device_state = "ready",
                 charge_timer = 0,
                 cooldown_timer = 0,
-                artifact_section = data.artifact_section,
+                artefact_section = data.artefact_section,
                 original_condition = data.original_condition
             })
 
@@ -372,7 +372,7 @@ function topaz_device_wrapper:spawn_charge_stage(stage)
     if not alife_obj then return end
 
     local data = get_data(self.object:id())
-    local primary_type, _ = get_anomaly_type_for_artifact(data.artifact_section)
+    local primary_type, _ = get_anomaly_type_for_artefact(data.artefact_section)
 
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
@@ -471,7 +471,7 @@ function topaz_device_wrapper:spawn_field_zone()
     if not alife_obj then return end
 
     local data = get_data(self.object:id())
-    local _, field_type = get_anomaly_type_for_artifact(data.artifact_section)
+    local _, field_type = get_anomaly_type_for_artefact(data.artefact_section)
 
     local lvid = level.vertex_id(device_pos)
     local gvid = self.object:game_vertex_id()
@@ -618,7 +618,7 @@ function topaz_device_wrapper:net_destroy()
 end
 
 --------------------------------------------------------------------------------
--- Prevent pickup while charging or when an artifact hasn't been retrieved
+-- Prevent pickup while charging or when an artefact hasn't been retrieved
 --------------------------------------------------------------------------------
 function topaz_device_wrapper:pickup()
     local id = self.object:id()
@@ -633,8 +633,8 @@ function topaz_device_wrapper:pickup()
         return false
     end
     
-    -- Cannot pick up if there's an artifact waiting to be retrieved
-    if data.artifact_section then
+    -- Cannot pick up if there's an artefact waiting to be retrieved
+    if data.artefact_section then
         if db.actor then
             db.actor:give_talk_message("st_zad_topaz_retrieve", nil, nil, nil, nil)
         end

@@ -1,7 +1,7 @@
 --[[
     UI Topaz Device - Interaction dialog for Topaz Scanner
-    - Artifact list shown directly on open
-    - "Charge Artifact" button at bottom
+    - Artefact list shown directly on open
+    - "Charge Artefact" button at bottom
     - "Close" button at bottom
     - No pick up button (handled by game)
 ]]
@@ -48,7 +48,7 @@ class "UITopazDevice" (CUIScriptWnd)
 function UITopazDevice:__init() super()
     self.obj_id = nil
     self.selected_data = nil
-    self.artifact_data = {}  -- section -> {section, condition, object}
+    self.artefact_data = {}  -- section -> {section, condition, object}
     
     self:InitControls()
     self:InitCallbacks()
@@ -72,8 +72,8 @@ function UITopazDevice:InitControls()
     self.title_text = xml:InitStatic("title_text", self.back)
     self.status_text = xml:InitStatic("status_text", self.back)
     self.list_frame = xml:InitFrame("list_frame", self.back)
-    self.artifact_list = xml:InitListBox("artifact_list", self.list_frame)
-    self:Register(self.artifact_list, "artifact_list")
+    self.artefact_list = xml:InitListBox("artefact_list", self.list_frame)
+    self:Register(self.artefact_list, "artefact_list")
     
     self.btn_charge = xml:Init3tButton("btn_charge", self.back)
     self:Register(self.btn_charge, "btn_charge")
@@ -90,8 +90,8 @@ function UITopazDevice:InitCallbacks()
         self.OnCharge, self)
     self:AddCallback("btn_close", ui_events.BUTTON_CLICKED, 
         self.OnClose, self)
-    self:AddCallback("artifact_list", ui_events.LIST_ITEM_CLICKED, 
-        self.OnArtifactClicked, self)
+    self:AddCallback("artefact_list", ui_events.LIST_ITEM_CLICKED, 
+        self.OnArtefactClicked, self)
 end
 
 --------------------------------------------------------------------------------
@@ -120,10 +120,10 @@ function UITopazDevice:TestAndShow(obj_id)
     -- Update status text
     self:UpdateStatusText()
     
-    -- Populate artifact list
-    self:PopulateArtifactList()
+    -- Populate artefact list
+    self:PopulateArtefactList()
     
-    -- Disable charge button until artifact selected
+    -- Disable charge button until artefact selected
     pcall(function() self.btn_charge:Enable(false) end)
     
     pcall(function() self:ShowDialog(true) end)
@@ -153,24 +153,24 @@ end
 --------------------------------------------------------------------------------
 -- Custom list item class
 --------------------------------------------------------------------------------
-class "artifact_item" (CUIListBoxItem)
+class "artefact_item" (CUIListBoxItem)
 
-function artifact_item:__init(height) super(height)
+function artefact_item:__init(height) super(height)
     self.art_section = nil
     self.txt = self:GetTextItem()
     self.txt:SetFont(GetFontLetterica16Russian())
     self.txt:SetEllipsis(true)
 end
 
-function artifact_item:__finalize()
+function artefact_item:__finalize()
 end
 
-function UITopazDevice:AddArtifactEntry(entry)
-    local item = artifact_item(22)
+function UITopazDevice:AddArtefactEntry(entry)
+    local item = artefact_item(22)
     item:SetWndSize(vector2():set(400, 22))
     item.art_section = entry.section
 
-    local art_name = self:GetArtifactDisplayName(entry.object, entry.section)
+    local art_name = self:GetArtefactDisplayName(entry.object, entry.section)
     local condition_pct = math.floor(entry.condition * 100)
     local prefix = entry.on_belt and "[BELT] " or ""
     local txt = prefix .. art_name .. " [" .. condition_pct .. "%]"
@@ -179,45 +179,45 @@ function UITopazDevice:AddArtifactEntry(entry)
     item.txt:SetWndSize(vector2():set(400, 22))
     pcall(function() item.txt:SetText(txt) end)
 
-    -- Set text color based on artifact condition
+    -- Set text color based on artefact condition
     local color = condition_to_color(entry.condition)
     pcall(function() item.txt:SetTextColor(color) end)
 
-    self.artifact_list:AddExistingItem(item)
+    self.artefact_list:AddExistingItem(item)
 end
 
 --------------------------------------------------------------------------------
--- Populate artifact list
+-- Populate artefact list
 --------------------------------------------------------------------------------
-function UITopazDevice:PopulateArtifactList()
-    self.artifact_list:RemoveAll()
+function UITopazDevice:PopulateArtefactList()
+    self.artefact_list:RemoveAll()
     self.selected_data = nil
-    self.artifact_data = {}
+    self.artefact_data = {}
     
-    local artifacts = topaz_device.find_perk_artifacts_in_inventory() or {}
+    local artefacts = topaz_device.find_perk_artefacts_in_inventory() or {}
     
-    -- Sort: belt artifacts first, then by condition descending
-    table.sort(artifacts, function(a, b)
+    -- Sort: belt artefacts first, then by condition descending
+    table.sort(artefacts, function(a, b)
         if a.on_belt ~= b.on_belt then
-            return a.on_belt  -- belt artifacts come first
+            return a.on_belt  -- belt artefacts come first
         end
         return a.condition > b.condition  -- highest condition first
     end)
     
-    for _, entry in ipairs(artifacts) do
-        self.artifact_data[entry.section] = entry
-        self:AddArtifactEntry(entry)
+    for _, entry in ipairs(artefacts) do
+        self.artefact_data[entry.section] = entry
+        self:AddArtefactEntry(entry)
     end
     
-    if #artifacts == 0 then
+    if #artefacts == 0 then
         -- Empty list, nothing to show
     end
 end
 
 --------------------------------------------------------------------------------
--- Get a human-readable name for an artifact
+-- Get a human-readable name for an artefact
 --------------------------------------------------------------------------------
-function UITopazDevice:GetArtifactDisplayName(obj, section)
+function UITopazDevice:GetArtefactDisplayName(obj, section)
     -- Use the section's localized name first (keys like st_af_generator_name)
     if section then
         local item_name = game.translate_string("st_" .. section .. "_name")
@@ -254,15 +254,15 @@ function UITopazDevice:OnClose()
     self:Close()
 end
 
--- An artifact was clicked in the list
-function UITopazDevice:OnArtifactClicked()
-    local selected = self.artifact_list:GetSelectedItem()
+-- An artefact was clicked in the list
+function UITopazDevice:OnArtefactClicked()
+    local selected = self.artefact_list:GetSelectedItem()
     if not selected then return end
     
     local section = selected.art_section
     if not section or section == "" then return end
     
-    local entry = self.artifact_data[section]
+    local entry = self.artefact_data[section]
     if entry then
         self.selected_data = entry
         pcall(function() self.btn_charge:Enable(true) end)
@@ -300,12 +300,12 @@ function start_dialog(obj_id)
         return
     end
     
-    -- Always try to return any pending artifact first, regardless of state
-    local art_section, art_cond = topaz_device.get_artifact_info(obj_id)
+    -- Always try to return any pending artefact first, regardless of state
+    local art_section, art_cond = topaz_device.get_artefact_info(obj_id)
     if art_section then
         -- If cooldown finished (ready state), return at original condition; otherwise full charge
         local ret_cond = (state == "ready") and art_cond or nil
-        topaz_device.return_artifact_to_player(obj_id, ret_cond)
+        topaz_device.return_artefact_to_player(obj_id, ret_cond)
         return
     end
     
