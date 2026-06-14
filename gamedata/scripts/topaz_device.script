@@ -271,7 +271,7 @@ function topaz_device_wrapper:update(delta)
 
         if data.charge_timer <= 0 then
             local orig_cond = data.original_condition or 1.0
-            local cooldown = 30
+            local cooldown = 43200 + (1 - orig_cond) * 43200  -- 12h at 100%, 24h at 0%
 
             set_data(id, {
                 device_state = "cooldown",

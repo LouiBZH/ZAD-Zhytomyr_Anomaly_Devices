@@ -6,7 +6,7 @@
 [zad_device_quartz]:tch_junk
 class                                    = II_ATTACH
 kind                                    = i_tool
-visual                                    = zad\topaz_device.ogf
+visual                                    = zad\quartz_device.ogf
 inv_name                                = st_zad_device_quartz_name
 inv_name_short                            = st_zad_device_quartz_short
 description                                = st_zad_device_quartz_desc
@@ -52,7 +52,7 @@ tier                                    = 2
 [zad_device_beryl]:tch_junk
 class                                    = II_ATTACH
 kind                                    = i_tool
-visual                                    = zad\topaz_device.ogf
+visual                                    = zad\beryl_device.ogf
 inv_name                                = st_zad_device_beryl_name
 inv_name_short                            = st_zad_device_beryl_short
 description                                = st_zad_device_beryl_desc
@@ -77,8 +77,8 @@ tier                                    = 3
 
 ; Quartz Device (placed)
 [placeable_zad_device_quartz]:physic_object
-visual                                    = zad\topaz_device.ogf
-inv_weight                                = 1.0
+visual                                    = zad\quartz_device.ogf
+placeable_type                            = prop
 script_binding                            = bind_hf_base.init
 item_section                            = zad_device_quartz
 bounding_box_size                        = 0.446506, 0.593599, 1.03146
@@ -97,8 +97,8 @@ bounding_box_origin                        = 0, 0.515729, 0.073609
 
 ; Beryl Device (placed) - reserved for future use
 [placeable_zad_device_beryl]:physic_object
-visual                                    = zad\topaz_device.ogf
-inv_weight                                = 1.0
+visual                                    = zad\beryl_device.ogf
+placeable_type                            = prop
 script_binding                            = bind_hf_base.init
 item_section                            = zad_device_beryl
 bounding_box_size                        = 0.446506, 0.593599, 1.03146

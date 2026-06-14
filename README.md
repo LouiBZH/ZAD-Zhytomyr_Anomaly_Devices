@@ -8,9 +8,9 @@ ZAD is a mod for Stalker Anomaly that adds three experimental devices for anomal
 - **TOPAZ-1M Scanner** — Perk Artefact Recharger ✅ (fully implemented)
 - **Beryl Device** — Upcoming
 
-All devices use the **Hideout Furniture** placement system ([Aoldri/anomaly-hf](https://github.com/Aoldri/anomaly-hf)).
+All devices use the **Hideout Furniture** placement system.
 
-## Quartz Device — Anomaly artefact scanner
+## QUARTZ-1M Scanner — Anomaly Artefact Scanner
 
 A device that you'll be able to place in any major anomaly field, and will warn you when an artefact spawns in it, and show you its nature.
 
@@ -18,15 +18,18 @@ A device that you'll be able to place in any major anomaly field, and will warn 
 
 An experimental anomalous study device designed to recharge perk artefacts. Once placed, select a perk artefact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.
 
-## Beryl Device — Anomaly stimulator
+## BERYL-1M Scanner — Anomaly Stimulator
 
 A device that you'll be able to place in any major anomaly field, allowing you to feed it an artefact and force the anomaly to spawn an artefact from its pool. The rarer the artefact you sacrifice, the better the reward. But in the end, it'll all come down to luck...
 
 ## Requirements
 
 [**Hideout Furniture**](https://www.moddb.com/mods/stalker-anomaly/addons/hideout-furniture-hf)
+
 [**Perk-Based Artefacts**](https://www.moddb.com/mods/stalker-anomaly/addons/perk-based-artefacts)
+
 [**Dynamic Anomalies Overhaul**](https://www.moddb.com/mods/stalker-anomaly/addons/dynamic-anomalies-overhaul-dao-read-description-please)
+
 Highly recommended : [Arrival](https://www.moddb.com/mods/stalker-anomaly/addons/arrival-anomalies) to have the best possible dynamic anomalies
 Latest modded exes for DLTX
 Tested on GAMMA, which includes all these natively. Should work on Anomaly 1.5.3 with those prerequisites.
