@@ -22,13 +22,19 @@
 		<text>Recharge complete.</text>
 	</string>
 	<string id="st_zad_topaz_cooldown">
-		<text>TOPAZ-1M Scanner is on cooldown. Please wait...</text>
+		<text>TOPAZ-1M Scanner is on cooldown. Please wait... %.1f hours left</text>
 	</string>
 	<string id="st_zad_topaz_retrieve">
 		<text>Retrieve artefact.</text>
 	</string>
+	<string id="st_zad_topaz_retrieve_timer">
+		<text>You have %.1f hours to get your artefact before the charge is voided</text>
+	</string>
 	<string id="st_zad_topaz_retrieved">
 		<text>Artefact recharged successfully.</text>
+	</string>
+	<string id="st_zad_topaz_retrieved_fail">
+		<text>Artefact charge voided, efficiency unchanged</text>
 	</string>
 	<string id="st_zad_topaz_busy">
 		<text>TOPAZ-1M Scanner is busy charging an artefact.</text>
@@ -93,7 +99,7 @@
 		<text>Recharge complete. Anomaly field dissipating.</text>
 	</string>
 	<string id="st_zad_beryl_cooldown">
-		<text>Beryl Device is on cooldown. Please wait.</text>
+		<text>Beryl Device is on cooldown. Please wait... %.1f hours left</text>
 	</string>
 	<string id="st_zad_beryl_retrieve">
 		<text>Interact to retrieve recharged artefact.</text>

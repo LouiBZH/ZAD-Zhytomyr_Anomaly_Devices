@@ -157,6 +157,7 @@ class "artefact_item" (CUIListBoxItem)
 
 function artefact_item:__init(height) super(height)
     self.art_section = nil
+    self.art_entry = nil
     self.txt = self:GetTextItem()
     self.txt:SetFont(GetFontLetterica16Russian())
     self.txt:SetEllipsis(true)
@@ -169,6 +170,7 @@ function UITopazDevice:AddArtefactEntry(entry)
     local item = artefact_item(22)
     item:SetWndSize(vector2():set(400, 22))
     item.art_section = entry.section
+    item.art_entry = entry  -- exact entry for this row (same section may repeat)
 
     local art_name = self:GetArtefactDisplayName(entry.object, entry.section)
     local condition_pct = math.floor(entry.condition * 100)
@@ -261,11 +263,18 @@ function UITopazDevice:OnArtefactClicked()
     
     local section = selected.art_section
     if not section or section == "" then return end
-    
-    local entry = self.artefact_data[section]
+    -- Use the entry bound to this exact row: the same section can appear
+    -- multiple times with different conditions
+    local entry = selected.art_entry or self.artefact_data[section]
     if entry then
-        self.selected_data = entry
-        pcall(function() self.btn_charge:Enable(true) end)
+        -- An artefact already at full condition cannot be recharged
+        local is_full = entry.condition >= 1.0
+        if is_full then
+            self.selected_data = nil
+        else
+            self.selected_data = entry
+        end
+        pcall(function() self.btn_charge:Enable(not is_full) end)
     end
 end
 
@@ -297,6 +306,13 @@ function start_dialog(obj_id)
     
     -- If charging, block UI - tip text already shows "charging" on the device
     if state == "charging" then
+        return
+    end
+
+    -- If recharging (artefact already retrieved, cooldown still running),
+    -- only show the remaining cooldown time - no UI
+    if state == "recharging" then
+        topaz_device.show_cooldown_message(obj_id)
         return
     end
     

@@ -83,6 +83,19 @@ function get_artefact_info(obj_id)
     return data.artefact_section, data.original_condition
 end
 
+function get_cooldown_remaining(obj_id)
+    local data = get_data(obj_id)
+    return data.cooldown_timer or 0
+end
+
+function show_cooldown_message(obj_id)
+    local actor = get_actor()
+    if not actor then return end
+
+    local hours = get_cooldown_remaining(obj_id) / 3600
+    news_manager.send_tip(actor, string.format(game.translate_string("st_zad_topaz_cooldown"), hours), nil, nil, 30000)
+end
+
 function start_charging(obj_id, section, condition)
     local actor = get_actor()
     if not section or not actor then return end
@@ -90,9 +103,7 @@ function start_charging(obj_id, section, condition)
     -- Block charging if cooldown timer is still active (player retrieved early)
     local data = get_data(obj_id)
     if data.cooldown_timer and data.cooldown_timer > 0 then
-        if actor then
-            actor:give_talk_message("st_zad_topaz_cooldown", nil, nil, nil, nil)
-        end
+        news_manager.send_tip(actor, game.translate_string("st_zad_topaz_cooldown"), nil, nil, 30000)
         return
     end
 
@@ -140,7 +151,8 @@ function return_artefact_to_player(obj_id, cond)
     local section = data.artefact_section
     if not section then return end
 
-    alife_create_item(section, actor, {cond = cond or 1.0})
+    local ret_cond = cond or 1.0
+    alife_create_item(section, actor, {cond = ret_cond})
 
     -- Clean up anomalies before returning artefact
     local obj = level.object_by_id(obj_id)
@@ -152,9 +164,13 @@ function return_artefact_to_player(obj_id, cond)
     end
 
     if hf_obj_manager then
+        -- If the cooldown is still running, keep the device locked in "recharging"
+        -- for the remaining time; otherwise it goes back to idle
+        local remaining = data.cooldown_timer or 0
         hf_obj_manager.set_data(obj_id, {
-            device_state = "idle",
+            device_state = (remaining > 0) and "recharging" or "idle",
             charge_timer = 0,
+            cooldown_timer = remaining,
             artefact_section = nil,
             original_condition = nil
         })
@@ -164,7 +180,9 @@ function return_artefact_to_player(obj_id, cond)
         obj:set_tip_text(game.translate_string("st_interact"))
     end
 
-    actor:give_talk_message("st_zad_topaz_retrieved", nil, nil, nil, nil)
+    -- Fail message if the artefact was not restored to full condition
+    local msg_id = (ret_cond >= 1.0) and "st_zad_topaz_retrieved" or "st_zad_topaz_retrieved_fail"
+    news_manager.send_tip(actor, game.translate_string(msg_id), nil, nil, 30000)
 end
 
 function get_anomaly_type_for_artefact(section)
@@ -242,8 +260,8 @@ function topaz_device_wrapper:update(delta)
     local data = get_data(id)
     local state = data.device_state or "idle"
 
-    -- Always count down cooldown timer (blocks new charges even after retrieval)
-    if data.cooldown_timer and data.cooldown_timer > 0 and state ~= "cooldown" then
+    -- Count down leftover cooldown timers outside cooldown/recharging states
+    if data.cooldown_timer and data.cooldown_timer > 0 and state ~= "cooldown" and state ~= "recharging" then
         data.cooldown_timer = data.cooldown_timer - dt
         if data.cooldown_timer <= 0 then data.cooldown_timer = 0 end
         set_data(id, { cooldown_timer = data.cooldown_timer })
@@ -272,6 +290,12 @@ function topaz_device_wrapper:update(delta)
         if data.charge_timer <= 0 then
             local orig_cond = data.original_condition or 1.0
             local cooldown = 43200 + (1 - orig_cond) * 43200  -- 12h at 100%, 24h at 0%
+
+            local actor = get_actor()
+            if actor then
+                local hours = cooldown / 3600
+                news_manager.send_tip(actor, string.format(game.translate_string("st_zad_topaz_retrieve_timer"), hours), nil, nil, 30000)
+            end
 
             set_data(id, {
                 device_state = "cooldown",
@@ -327,6 +351,19 @@ function topaz_device_wrapper:update(delta)
             })
 
             self.object:set_tip_text(game.translate_string("st_zad_topaz_retrieve"))
+        else
+            set_data(id, { cooldown_timer = data.cooldown_timer })
+        end
+
+    elseif state == "recharging" then
+        data.cooldown_timer = (data.cooldown_timer or 0) - dt
+
+        if data.cooldown_timer <= 0 then
+            -- Recharging over: device is idle again
+            set_data(id, {
+                device_state = "idle",
+                cooldown_timer = 0
+            })
         else
             set_data(id, { cooldown_timer = data.cooldown_timer })
         end
@@ -628,15 +665,21 @@ function topaz_device_wrapper:pickup()
     -- Cannot pick up while charging
     if state == "charging" then
         if db.actor then
-            db.actor:give_talk_message("st_zad_topaz_charging", nil, nil, nil, nil)
+            news_manager.send_tip(db.actor, game.translate_string("st_zad_topaz_charging"), nil, nil, 30000)
         end
+        return false
+    end
+
+    -- Cannot pick up while recharging (early retrieval: cooldown still running)
+    if state == "recharging" then
+        show_cooldown_message(id)
         return false
     end
     
     -- Cannot pick up if there's an artefact waiting to be retrieved
     if data.artefact_section then
         if db.actor then
-            db.actor:give_talk_message("st_zad_topaz_retrieve", nil, nil, nil, nil)
+            news_manager.send_tip(db.actor, game.translate_string("st_zad_topaz_retrieve"), nil, nil, 30000)
         end
         return false
     end
