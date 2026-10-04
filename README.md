@@ -31,7 +31,9 @@ A device that you'll be able to place in any major anomaly field, allowing you t
 [**Dynamic Anomalies Overhaul**](https://www.moddb.com/mods/stalker-anomaly/addons/dynamic-anomalies-overhaul-dao-read-description-please)
 
 Highly recommended : [Arrival](https://www.moddb.com/mods/stalker-anomaly/addons/arrival-anomalies) to have the best possible dynamic anomalies
+
 Latest modded exes for DLTX
+
 Tested on GAMMA, which includes all these natively. Should work on Anomaly 1.5.3 with those prerequisites.
 
 ## Installation
@@ -50,8 +52,11 @@ Drop in MO2 at any priority, there should be no overwrites
 ## Credits
 
 Base model by olegolegperepelica (https://skfb.ly/pAoqG).
+
 Sounds by [Diff_Style](https://pixabay.com/users/diff_style-14054055/) & [MagiaZ](https://pixabay.com/users/magiaz-10236927/)
+
 Thanks to Kimmyyy for helping me import the model without crashing my game
+
 Thanks to Swissm4n for helping with textures edits
 
 ## Disclaimer
