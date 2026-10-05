@@ -18,8 +18,8 @@ inv_grid_y                                = 0
 cost                                    = 10000
 icons_texture                            = ui\zad\ui_zad
 
-use1_functor                            = placeable_furniture.place_item
-use1_action_functor                        = placeable_furniture.func_place_item
+use1_functor                            = quartz_device.place_item
+use1_action_functor                        = quartz_device.func_place_item
 placeable_type                            = prop
 placeable_section                        = placeable_zad_device_quartz
 
@@ -79,7 +79,7 @@ tier                                    = 3
 [placeable_zad_device_quartz]:physic_object
 visual                                    = zad\quartz_device.ogf
 placeable_type                            = prop
-script_binding                            = bind_hf_base.init
+script_binding                            = quartz_device.init
 item_section                            = zad_device_quartz
 bounding_box_size                        = 0.446506, 0.593599, 1.03146
 bounding_box_origin                        = 0, 0.515729, 0.073609

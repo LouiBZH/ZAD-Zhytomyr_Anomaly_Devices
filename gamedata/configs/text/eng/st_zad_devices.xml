@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <string_table>
+	<!-- Quartz Device -->
+	<string id="st_zad_device_quartz_name">
+		<text>QUARTZ-1M Scanner</text>
+	</string>
+	<string id="st_zad_device_quartz_short">
+		<text>Quartz-1M</text>
+	</string>
+	<string id="st_zad_device_quartz_desc">
+		<text>An experimental anomalous study device designed to warn you about newly appeared artefacts. Place the scanner near the center of an anomaly field and it will start surveying. You will then receive a report of all the newly spawned artefacts in fields covered by a scanner from your current zone (their radio does not allow long range transmissions) everytime you enter it or an artefact spawns.</text>
+	</string>
+	<string id="st_zad_quartz_pickup">
+		<text>Pick Up Device</text>
+	</string>
+	<string id="st_zad_quartz_placement_impossible">
+		<text>The QUARTZ-1M can only be placed near the center of an anomaly field</text>
+	</string>
+	<string id="st_zad_quartz_surveying">
+		<text>QUARTZ-1M is now surveying %s in %s</text>
+	</string>
+	<string id="st_zad_quartz_stopped_surveying">
+		<text>QUARTZ-1M is no longer surveying %s in %s</text>
+	</string>
+	<string id="st_zad_quartz_artefacts_detected">
+		<text>New artefacts detected in %s:</text>
+	</string>
+	<string id="st_zad_quartz_artefacts_line">
+		<text>\n- %s: %s</text>
+	</string>
+
 	<!-- Topaz Device -->
 	<string id="st_zad_device_topaz_name">
 		<text>TOPAZ-1M Scanner</text>
 	</string>
 	<string id="st_zad_device_topaz_short">
-		<text>Topaz</text>
+		<text>Topaz-1M</text>
 	</string>
 	<string id="st_zad_device_topaz_desc">
 		<text>An experimental anomalous study device designed to recharge perk artefacts. Once placed, select a perk artefact from your inventory and the device will draw from the Zone's connection to the Noosphere to restore it to full condition over a minute. Be careful though, as the device is very unstable and if you take too much time getting it back, you risk having done all this for nothing. The strain put on the Topaz will force you to let it cool down between uses.</text>
@@ -36,8 +65,45 @@
 	<string id="st_zad_topaz_retrieved_fail">
 		<text>Artefact charge voided, efficiency unchanged</text>
 	</string>
+	<string id="st_zad_topaz_artefact_gone">
+		<text>The selected artefact is no longer in your inventory.</text>
+	</string>
 	<string id="st_zad_topaz_busy">
 		<text>TOPAZ-1M Scanner is busy charging an artefact.</text>
+	</string>
+	<string id="st_zad_topaz_idle_ready">
+		<text>TOPAZ-1M Scanner %s is now ready to recharge an artefact</text>
+	</string>
+	<!-- Topaz Device Location Strings -->
+	<string id="st_zad_topaz_loc_with_smart">
+		<text>%s of %s in %s</text>
+	</string>
+	<string id="st_zad_topaz_loc_level">
+		<text>in %s</text>
+	</string>
+	<string id="st_zad_dir_n">
+		<text>north</text>
+	</string>
+	<string id="st_zad_dir_ne">
+		<text>north-east</text>
+	</string>
+	<string id="st_zad_dir_e">
+		<text>east</text>
+	</string>
+	<string id="st_zad_dir_se">
+		<text>south-east</text>
+	</string>
+	<string id="st_zad_dir_s">
+		<text>south</text>
+	</string>
+	<string id="st_zad_dir_sw">
+		<text>south-west</text>
+	</string>
+	<string id="st_zad_dir_w">
+		<text>west</text>
+	</string>
+	<string id="st_zad_dir_nw">
+		<text>north-west</text>
 	</string>
 
 	<!-- Topaz Device UI Dialog Strings -->
@@ -54,7 +120,7 @@
 		<text>Charge Artefact</text>
 	</string>
 	<string id="st_zad_topaz_ui_status_idle">
-		<text>Device ready. Select an artefact to start the scanning process.</text>
+		<text>Device ready. Select an artefact to start the scanning process (on belt excluded).</text>
 	</string>
 	<string id="st_zad_topaz_ui_status_charging">
 		<text>Device is charging. Please wait...</text>
@@ -65,24 +131,16 @@
 	<string id="st_zad_topaz_ui_status_ready">
 		<text>Recharge complete! Pick up to retrieve your artefact.</text>
 	</string>
-
-	<!-- Quartz Device -->
-	<string id="st_zad_device_quartz_name">
-		<text>Quartz Device</text>
-	</string>
-	<string id="st_zad_device_quartz_short">
-		<text>Quartz</text>
-	</string>
-	<string id="st_zad_device_quartz_desc">
-		<text>An experimental anomalous study device. Use with caution.</text>
+	<string id="st_zad_topaz_ui_status_belt">
+		<text>This artefact is on your belt. Take it off to recharge it.</text>
 	</string>
 
 	<!-- Beryl Device -->
 	<string id="st_zad_device_beryl_name">
-		<text>Beryl Device</text>
+		<text>BERYL-1M Scanner</text>
 	</string>
 	<string id="st_zad_device_beryl_short">
-		<text>Beryl</text>
+		<text>Beryl-1M</text>
 	</string>
 	<string id="st_zad_device_beryl_desc">
 		<text>An experimental anomalous study device. Use with caution.</text>

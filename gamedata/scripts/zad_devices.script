@@ -28,7 +28,8 @@ function init_device_registry()
     device_registry[DEVICE_QUARTZ] = {
         name = "Quartz",
         placed_section = "placeable_zad_device_quartz",
-        active = false
+        active = false,
+        wrapper_class = "quartz_device_wrapper"
     }
     device_registry[DEVICE_BERYL] = {
         name = "Beryl",

@@ -7,6 +7,20 @@
     - Wrapper only for update loop and physics
 
     State machine: idle → charging (60s) → cooldown → ready → idle
+    (plus recharging → idle when an artefact is retrieved early)
+
+    Cooldowns run on the IN-GAME clock, so sleeping, time skips, guides and
+    fast travel all advance them. A global game-time watcher (see below)
+    advances every device with a running cooldown, whether the device is
+    online or not; the wrapper only reacts when the timer runs out.
+
+    Whenever the device enters the idle state again, a news tip announces
+    that it is ready to recharge, with its location relative to the nearest
+    smart terrain: st_zad_topaz_idle_ready
+    ("TOPAZ-1M Scanner <direction> of <smart> in <level> is now ready to
+    recharge an artefact"). The tip is also delivered while the actor is on
+    another level: the watcher finishes offline downtimes and the phrase then
+    refers to the device's own level
 ]]
 
 -- State helpers
@@ -22,6 +36,288 @@ end
 
 local function get_actor()
     return db and db.actor or nil
+end
+
+--------------------------------------------------------------------------------
+-- Game-clock cooldown advancement
+-- Cooldowns must run on the in-game clock so sleeping, time skips, guides
+-- and fast travel advance them. A global actor update watcher advances every
+-- device with a running cooldown by the elapsed game seconds - whether the
+-- device is online or not. Device ids are tracked while their countdown is
+-- active; the tracker re-fills itself after a save load with a chunked
+-- alife sweep so it never causes a hitch. When a countdown reaches zero on
+-- an offline device, its downtime is finished here (see
+-- finish_offline_downtime) so the ready notification works on any level
+--------------------------------------------------------------------------------
+local TOPAZ_PLACEABLE_SECTION = "placeable_zad_device_topaz"
+
+local tracked_devices = {}    -- [device obj id] = true while a cooldown runs
+local last_game_time = nil    -- game clock seen on the previous check
+local last_watch_ms = 0       -- real-time throttle for the watcher
+local rediscover_cursor = nil -- chunked alife sweep started after a load
+local REDISCOVER_CHUNK = 500
+local WATCH_INTERVAL_MS = 1000
+
+local function game_time_now()
+    local now = nil
+    pcall(function() now = game.get_game_time() end)
+    return now
+end
+
+local function device_data_safe(obj_id)
+    local data = nil
+    pcall(function() data = get_data(obj_id) end)
+    return data or {}
+end
+
+local function advance_running_cooldowns()
+    local now = game_time_now()
+    if not now then return end
+
+    if not last_game_time then
+        last_game_time = now
+        return
+    end
+
+    local elapsed = now:diffSec(last_game_time)
+    last_game_time = now
+    if elapsed <= 0 then return end
+
+    for obj_id in pairs(tracked_devices) do
+        local remaining = device_data_safe(obj_id).cooldown_timer
+        if not remaining or remaining <= 0 then
+            tracked_devices[obj_id] = nil
+        else
+            remaining = remaining - elapsed
+            if remaining <= 0 then
+                remaining = 0
+                tracked_devices[obj_id] = nil
+                -- Finish the downtime even when the device is offline, so
+                -- the ready notification reaches the actor on any level
+                finish_offline_downtime(obj_id)
+            end
+            pcall(function() set_data(obj_id, { cooldown_timer = remaining }) end)
+        end
+    end
+end
+
+local function process_rediscovery()
+    if rediscover_cursor == nil then return end
+
+    local sim = alife()
+    if not sim then
+        rediscover_cursor = nil
+        return
+    end
+
+    local stop = rediscover_cursor + REDISCOVER_CHUNK - 1
+    if stop > 65534 then stop = 65534 end
+
+    for obj_id = rediscover_cursor, stop do
+        local se = nil
+        pcall(function() se = sim:object(obj_id) end)
+        if se then
+            local section = nil
+            pcall(function() section = se:section_name() end)
+            if section == TOPAZ_PLACEABLE_SECTION then
+                local remaining = device_data_safe(obj_id).cooldown_timer
+                if remaining and remaining > 0 then
+                    tracked_devices[obj_id] = true
+                end
+            end
+        end
+    end
+
+    rediscover_cursor = stop + 1
+    if rediscover_cursor > 65534 then rediscover_cursor = nil end
+end
+
+local function on_cooldown_watch_update()
+    process_rediscovery()
+
+    local now_ms = time_global()
+    if now_ms - last_watch_ms < WATCH_INTERVAL_MS then return end
+    last_watch_ms = now_ms
+
+    advance_running_cooldowns()
+end
+
+-- Display name of the current level (level names are string ids in Anomaly:
+-- game.translate_string(level.name()) -> "Zaton")
+local function get_level_display_name()
+    local name = nil
+    pcall(function() name = level.name() end)
+    if type(name) ~= "string" or name == "" then return "the Zone" end
+
+    local translated = nil
+    pcall(function() translated = game.translate_string(name) end)
+    if type(translated) == "string" and translated ~= "" and translated ~= name then
+        return translated
+    end
+    return name
+end
+
+-- Returns the translated string for a string id, or nil when the id has no
+-- translation (game.translate_string returns the id itself then)
+local function translate_optional(str_id)
+    if not str_id then return nil end
+
+    local translated = nil
+    pcall(function() translated = game.translate_string(str_id) end)
+    if type(translated) == "string" and translated ~= "" and translated ~= str_id then
+        return translated
+    end
+    return nil
+end
+
+local function actor_level_id()
+    if not (db and db.actor and game_graph) then return nil end
+    local ok, lvl = pcall(function()
+        return game_graph():vertex(db.actor:game_vertex_id()):level_id()
+    end)
+    return ok and lvl or nil
+end
+
+-- 8-way compass strings for the nearest-smart location phrase
+local DIRECTION_STRINGS = {
+    "st_zad_dir_n", "st_zad_dir_ne", "st_zad_dir_e", "st_zad_dir_se",
+    "st_zad_dir_s", "st_zad_dir_sw", "st_zad_dir_w", "st_zad_dir_nw",
+}
+
+-- Smarts farther than this (metres, 2D) are not used as a location
+local MAX_SMART_DISTANCE = 250
+
+-- Finds the nearest smart terrain to a position. target_lvl is the level id
+-- the position belongs to - smarts of other levels use other-level
+-- coordinates and are skipped (defaults to the actor's current level).
+-- db.smart_terrain_by_id is filled by smart_terrain.script; the SIMBOARD
+-- table is kept as a fallback for setups that do not provide it
+local function get_nearest_smart(pos, target_lvl)
+    if not pos then return nil end
+
+    if not target_lvl then target_lvl = actor_level_id() end
+    local best_sm, best_dist = nil, nil
+
+    local function consider(sm)
+        if not (sm and sm.position) then return end
+
+        -- Smarts from other levels use other-level coordinates: skip them
+        if target_lvl and game_graph and sm.m_game_vertex_id then
+            local ok, lvl = pcall(function()
+                return game_graph():vertex(sm.m_game_vertex_id):level_id()
+            end)
+            if ok and lvl and lvl ~= target_lvl then return end
+        end
+
+        local dx = sm.position.x - pos.x
+        local dz = sm.position.z - pos.z
+        local d = math.sqrt(dx * dx + dz * dz)
+        if d > 0 and (not best_dist or d < best_dist) then
+            best_dist = d
+            best_sm = sm
+        end
+    end
+
+    if db and type(db.smart_terrain_by_id) == "table" then
+        for _, sm in pairs(db.smart_terrain_by_id) do
+            consider(sm)
+        end
+    end
+    if not best_sm and type(SIMBOARD) == "table" and type(SIMBOARD.smarts_by_names) == "table" then
+        for _, sm in pairs(SIMBOARD.smarts_by_names) do
+            consider(sm)
+        end
+    end
+
+    if not best_sm or (best_dist and best_dist > MAX_SMART_DISTANCE) then return nil end
+    return best_sm
+end
+
+-- "west" style direction from one point to another (8-way compass)
+local function direction_of(from, to)
+    if not (from and to) then return nil end
+
+    local dx = (to.x or 0) - (from.x or 0)
+    local dz = (to.z or 0) - (from.z or 0)
+    if dx == 0 and dz == 0 then return nil end
+
+    local ang = math.atan2(dx, dz) -- 0 = +z, pi/2 = +x
+    if ang < 0 then ang = ang + 2 * math.pi end
+    local sector = math.floor(ang / (math.pi / 4) + 0.5) % 8
+    return translate_optional(DIRECTION_STRINGS[sector + 1])
+end
+
+-- Display name of a smart terrain: the localized smart-name table first
+-- (get_smart_terrain_name from smart_terrain.script), then the raw name
+local function smart_display_name(sm)
+    if not sm then return nil end
+
+    if type(get_smart_terrain_name) == "function" then
+        local ok, name = pcall(get_smart_terrain_name, sm)
+        if ok and type(name) == "string" and name ~= "" then
+            return name
+        end
+    end
+
+    local ok, name = pcall(function() return sm:name() end)
+    if ok and type(name) == "string" and name ~= "" then
+        return translate_optional(name) or name
+    end
+
+    return nil
+end
+
+-- Level id + display name of the level a placed device lives on, taken
+-- from its server object, so it also works while the device is offline
+-- (the actor being on another level)
+local function get_object_level_info(obj_id)
+    local lvl_id, lvl_name = nil, nil
+
+    local se = nil
+    pcall(function() se = alife():object(obj_id) end)
+    if se then
+        local gvid = nil
+        pcall(function() gvid = se.m_game_vertex_id end)
+        if gvid and game_graph then
+            pcall(function() lvl_id = game_graph():vertex(gvid):level_id() end)
+        end
+    end
+
+    if lvl_id and alife() then
+        pcall(function() lvl_name = alife():level_name(lvl_id) end)
+    end
+    if type(lvl_name) ~= "string" or lvl_name == "" then lvl_name = nil end
+    if lvl_name then lvl_name = translate_optional(lvl_name) or lvl_name end
+
+    return lvl_id, lvl_name
+end
+
+-- Position of an offline device, read from its server object
+local function get_server_position(obj_id)
+    local pos = nil
+    pcall(function() pos = alife():object(obj_id).position end)
+    return pos
+end
+
+-- Human-readable location of the device, e.g. "west of the Station in
+-- Zaton", or "in Zaton" when no smart terrain is near. lvl_id / lvl_name
+-- are the device's own level, so the phrase stays correct when the actor
+-- receives the notification while on another level
+local function get_location_phrase(pos, lvl_id, lvl_name)
+    local level_name = lvl_name or get_level_display_name()
+
+    local sm = get_nearest_smart(pos, lvl_id)
+    if sm then
+        local name = smart_display_name(sm)
+        -- The phrase reads "<device> is <direction> of <smart>", so the
+        -- direction is computed FROM the smart TO the device
+        local direction = direction_of(sm.position, pos)
+        if name and direction then
+            return string.format(game.translate_string("st_zad_topaz_loc_with_smart"), direction, name, level_name)
+        end
+    end
+
+    return string.format(game.translate_string("st_zad_topaz_loc_level"), level_name)
 end
 
 --------------------------------------------------------------------------------
@@ -96,7 +392,52 @@ function show_cooldown_message(obj_id)
     news_manager.send_tip(actor, string.format(game.translate_string("st_zad_topaz_cooldown"), hours), nil, nil, 30000)
 end
 
-function start_charging(obj_id, section, condition)
+-- Announces that the device finished its downtime and can charge again, e.g.
+-- "TOPAZ-1M Scanner west of the Station in Zaton is now ready to recharge an artefact"
+-- obj_id is used for the level / position, so the tip is also correct while
+-- the actor is on another level and the device is offline
+function show_idle_ready_tip(obj_id, device_pos)
+    local actor = get_actor()
+    if not actor then return end
+
+    local lvl_id, lvl_name = nil, nil
+    if obj_id then
+        lvl_id, lvl_name = get_object_level_info(obj_id)
+    end
+
+    if not device_pos then
+        device_pos = get_server_position(obj_id)
+    end
+    if not device_pos then return end
+
+    local location = get_location_phrase(device_pos, lvl_id, lvl_name)
+    news_manager.send_tip(actor, string.format(game.translate_string("st_zad_topaz_idle_ready"), location), nil, nil, 30000)
+end
+
+-- Completes a device's downtime while it is offline: the device becomes idle
+-- again and the ready notification is delivered even when the actor is on
+-- another level. Only the recharging state is finished here - the cooldown
+-- state is completed by the wrapper when the device comes back online
+function finish_offline_downtime(obj_id)
+    if not obj_id then return end
+
+    local data = device_data_safe(obj_id)
+    if data.device_state ~= "recharging" then return end
+
+    -- Online devices are handled by the wrapper (which also delays the
+    -- notification so it does not collide with others), so leave them alone
+    local online = false
+    pcall(function() online = level.object_by_id(obj_id) ~= nil end)
+    if online then return end
+
+    pcall(function()
+        set_data(obj_id, { device_state = "idle", cooldown_timer = 0 })
+    end)
+
+    show_idle_ready_tip(obj_id)
+end
+
+function start_charging(obj_id, section, condition, item_id)
     local actor = get_actor()
     if not section or not actor then return end
 
@@ -107,24 +448,38 @@ function start_charging(obj_id, section, condition)
         return
     end
 
-    -- Find the artefact first, then remove it (iterate_inventory breaks if you remove during iteration)
+    -- Find the artefact first, then remove it (iterate_inventory breaks if
+    -- you remove during iteration). The UI passes the exact item id, so with
+    -- several copies of the same section the right one is consumed; the
+    -- fallback matches by section + condition
     local found_item = nil
     actor:iterate_inventory(function(npc, item)
         if found_item then return end
         if not item then return end
         local ok, sec = pcall(function() return item:section() end)
         if not ok or sec ~= section then return end
-        if condition ~= nil and math.abs(item:condition() - condition) >= 0.01 then return end
+        if item_id then
+            local ok_id, id = pcall(function() return item:id() end)
+            if not ok_id or id ~= item_id then return end
+        elseif condition ~= nil and math.abs(item:condition() - condition) >= 0.01 then
+            return
+        end
         found_item = item
     end, actor)
-    
-    if found_item then
-        -- Release the item via its server object (remove_item doesn't exist in this engine)
-        local se_obj = alife_object(found_item:id())
-        if se_obj then
-            alife():release(se_obj, true)
-        end
+
+    -- Never start charging without consuming the artefact (it would duplicate)
+    if not found_item then
+        news_manager.send_tip(actor, game.translate_string("st_zad_topaz_artefact_gone"), nil, nil, 30000)
+        return
     end
+
+    -- Release the item via its server object (remove_item doesn't exist in this engine)
+    local se_obj = alife_object(found_item:id())
+    if not se_obj then
+        news_manager.send_tip(actor, game.translate_string("st_zad_topaz_artefact_gone"), nil, nil, 30000)
+        return
+    end
+    alife():release(se_obj, true)
 
     set_data(obj_id, {
         device_state = "charging",
@@ -167,13 +522,23 @@ function return_artefact_to_player(obj_id, cond)
         -- If the cooldown is still running, keep the device locked in "recharging"
         -- for the remaining time; otherwise it goes back to idle
         local remaining = data.cooldown_timer or 0
+        local new_state = (remaining > 0) and "recharging" or "idle"
         hf_obj_manager.set_data(obj_id, {
-            device_state = (remaining > 0) and "recharging" or "idle",
+            device_state = new_state,
             charge_timer = 0,
             cooldown_timer = remaining,
             artefact_section = nil,
             original_condition = nil
         })
+
+        -- Entering idle: schedule the ready notification (it is delayed a
+        -- moment so it does not collide with the retrieval tip sent below)
+        if new_state == "idle" and obj then
+            local binder = obj:binded_object()
+            if binder and binder.wrapper and binder.wrapper.schedule_idle_ready_tip then
+                binder.wrapper:schedule_idle_ready_tip()
+            end
+        end
     end
 
     if obj then
@@ -234,6 +599,7 @@ function topaz_device_wrapper:__init(obj) super(obj)
     self.charge_stage = 0
     self.field_spawned = false
     self.psy_spawned = false
+    self.pending_idle_tip_at = nil
 
     local id = self.object:id()
     local data = get_data(id)
@@ -260,11 +626,23 @@ function topaz_device_wrapper:update(delta)
     local data = get_data(id)
     local state = data.device_state or "idle"
 
-    -- Count down leftover cooldown timers outside cooldown/recharging states
-    if data.cooldown_timer and data.cooldown_timer > 0 and state ~= "cooldown" and state ~= "recharging" then
-        data.cooldown_timer = data.cooldown_timer - dt
-        if data.cooldown_timer <= 0 then data.cooldown_timer = 0 end
-        set_data(id, { cooldown_timer = data.cooldown_timer })
+    -- Fire the scheduled idle notification once its delay has elapsed (the
+    -- device must still be idle; skip it if a new charge already started)
+    if self.pending_idle_tip_at and time_global() >= self.pending_idle_tip_at then
+        self.pending_idle_tip_at = nil
+        if state == "idle" then
+            local pos = nil
+            pcall(function() pos = self.object:position() end)
+            show_idle_ready_tip(id, pos)
+        end
+    end
+
+    -- Track devices with a running cooldown so the global watcher keeps
+    -- advancing it on the game clock even when this device goes offline
+    if data.cooldown_timer and data.cooldown_timer > 0 then
+        tracked_devices[id] = true
+    else
+        tracked_devices[id] = nil
     end
 
     if state == "charging" then
@@ -329,7 +707,10 @@ function topaz_device_wrapper:update(delta)
         end
 
     elseif state == "cooldown" then
-        data.cooldown_timer = (data.cooldown_timer or 0) - dt
+        -- The remaining time is advanced on the game clock by the global
+        -- watcher (so sleeping and other time skips count); here we only
+        -- react when it has run out
+        local remaining = data.cooldown_timer or 0
 
         -- Keep cooldown sound position synced with device position
         if self.cooldown_sound then
@@ -339,7 +720,7 @@ function topaz_device_wrapper:update(delta)
             end
         end
 
-        if data.cooldown_timer <= 0 then
+        if remaining <= 0 then
             -- Cooldown over, clean up anomalies and ready for manual retrieval
             self:stop_charging_effects()
             set_data(id, {
@@ -349,25 +730,31 @@ function topaz_device_wrapper:update(delta)
                 artefact_section = data.artefact_section,
                 original_condition = data.original_condition
             })
+            tracked_devices[id] = nil
 
             self.object:set_tip_text(game.translate_string("st_zad_topaz_retrieve"))
-        else
-            set_data(id, { cooldown_timer = data.cooldown_timer })
         end
 
     elseif state == "recharging" then
-        data.cooldown_timer = (data.cooldown_timer or 0) - dt
+        -- Same as above: this timer is advanced by the game-clock watcher
+        local remaining = data.cooldown_timer or 0
 
-        if data.cooldown_timer <= 0 then
-            -- Recharging over: device is idle again
+        if remaining <= 0 then
+            -- Downtime over: device is idle again
             set_data(id, {
                 device_state = "idle",
                 cooldown_timer = 0
             })
-        else
-            set_data(id, { cooldown_timer = data.cooldown_timer })
+            tracked_devices[id] = nil
+            self:schedule_idle_ready_tip()
         end
     end
+end
+
+-- Schedules the "ready to recharge" notification shortly after the device
+-- enters idle, so it does not collide with other tips sent the same moment
+function topaz_device_wrapper:schedule_idle_ready_tip()
+    self.pending_idle_tip_at = time_global() + 1500
 end
 
 function topaz_device_wrapper:start_charging_effects()
@@ -647,6 +1034,15 @@ end
 
 function topaz_device_wrapper:net_destroy()
     if not self.object then return end
+
+    -- If the device goes offline with a countdown running, keep it tracked so
+    -- the game-clock watcher can keep advancing it in the background
+    local id = self.object:id()
+    local data = device_data_safe(id)
+    if data.cooldown_timer and data.cooldown_timer > 0 then
+        tracked_devices[id] = true
+    end
+
     self:stop_charging_effects()
 
     if bind_hf_base.hf_binder_wrapper.net_destroy then
@@ -689,4 +1085,19 @@ function topaz_device_wrapper:pickup()
     
     -- Call parent pickup
     return bind_hf_base.hf_binder_wrapper.pickup(self)
+end
+
+--------------------------------------------------------------------------------
+-- Entry points
+--------------------------------------------------------------------------------
+function on_game_start()
+    -- Track cooldowns of placed devices after every save load: the tracker
+    -- lives in script memory, so it starts empty and sweeps the alife
+    -- (chunked) to find devices that still have a countdown running
+    rediscover_cursor = 1
+
+    RegisterScriptCallback("actor_on_update", on_cooldown_watch_update)
+    RegisterScriptCallback("load_state", function()
+        rediscover_cursor = 1
+    end)
 end

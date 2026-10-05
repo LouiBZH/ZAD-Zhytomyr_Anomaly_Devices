@@ -4,7 +4,7 @@
 
 ZAD is a mod for Stalker Anomaly that adds three experimental devices for anomalous study and artefact manipulation, inspired by the TOPAZ-2M Scanner from Stalker 2:
 
-- **QUARTZ-1M Scanner** — Anomaly Artefact Scanner ❌ Upcoming
+- **QUARTZ-1M Scanner** — Anomaly Artefact Scanner ✅ (fully implemented)
 - **TOPAZ-1M Scanner** — Perk Artefact Recharger ✅ (fully implemented)
 - **BERYL-1M Scanner** — Anomaly Stimulator ❌ Upcoming
 
@@ -12,7 +12,7 @@ All devices use the **Hideout Furniture** placement system.
 
 ## QUARTZ-1M Scanner — Anomaly Artefact Scanner
 
-A device that you'll be able to place in any major anomaly field, and will warn you when an artefact spawns in it, and show you its nature.
+An experimental anomalous study device designed to warn you about newly appeared artefacts. Place the scanner near the center of an anomaly field and it will start surveying. You will then receive a report of all the newly spawned artefacts in all fields covered by a scanner from your current zone (their radio does not allow long range transmissions) everytime you enter it or an artefact spawns.
 
 ## TOPAZ-1M Scanner — Perk Artefact Recharger
 
@@ -42,7 +42,7 @@ Drop in MO2 at any priority, there should be no overwrites
 
 ## To do
 
-- Add the 2 missing devices
+- Add the last missing device
 - Balance pass
 - Russian translation (machine translation)
 - Edit the placeable model so the tripod is deployed (I'm bad at blender so this one is not sure)

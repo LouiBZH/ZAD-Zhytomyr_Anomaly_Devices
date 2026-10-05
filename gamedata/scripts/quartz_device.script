@@ -1,0 +1,1393 @@
+--[[
+    Quartz Scanner - Anomaly Artefact Scanner
+
+    Placement:
+    - The device is placed through the Hideout Furniture placement system
+      (functor wiring in items_zad_devices.ltx).
+    - Placement is only allowed inside a major anomaly field, identified with:
+      known anomaly-field story objects (the addon's STATIC_FIELD_SPOTS list),
+      DAO smart spots (smart_map_for_DAO.dao_spots) and smarts showing a
+      field circle on the map.
+    - Three enforcement layers: the check runs when the player starts placing
+      (func_place_item), when the device is confirmed (wrapped
+      placeable_furniture.createObject) and one update after the device was
+      created (post-placement check in quartz_device.init). The last layer
+      does not depend on Hideout Furniture internals, so moving out of the
+      field with the device in placement mode can never keep a placement.
+    - If placement is attempted outside a field it is cancelled, the device
+      is refunded and st_zad_quartz_placement_impossible is shown.
+    - When a placement succeeds, a news tip announces the field the device
+      is surveying: st_zad_quartz_surveying
+      ("QUARTZ-1M is now surveying <zone> in <location>").
+    - When the device is picked up again, a news tip announces that it
+      stopped surveying: st_zad_quartz_stopped_surveying
+      ("QUARTZ-1M is no longer surveying <zone> in <location>").
+    - The surveyed field (smart or named spot) is registered in the device's
+      own state (hf_obj_manager) when it is placed and unregistered when it
+      is picked up, so the field name and identity are always available.
+    - A global survey driver watches the registered fields. Checks are
+      event-driven instead of continuous: one fires after a save load, when
+      the player enters a different anomaly zone, and as in-game time
+      passes - which covers sleeping, time skips, guides and fast travel.
+      Fields are only checked while the player is on their level, because
+      the artefact spawner only fills the anomaly zones of the loaded
+      level. When a check finds new artefacts, one combined tip is sent
+      with a bullet point per anomaly zone covered by a Quartz device
+      (st_zad_quartz_artefacts_detected / st_zad_quartz_artefacts_line):
+      "New artefacts detected in <level>:\n- <zone>: <artefact>, <artefact>"
+      The registry of surveyed devices is saved with the game, and placed
+      devices are re-registered by the scan itself when found; entries are
+      only removed when the device is picked up.
+      The first check after placement only establishes a baseline, so
+      artefacts already lying in the field are not announced.
+
+    The placed object is bound through quartz_device.init.
+]]
+
+-- Sections (must match items_zad_devices.ltx)
+local QUARTZ_ITEM_SECTION      = "zad_device_quartz"
+local QUARTZ_PLACEABLE_SECTION = "placeable_zad_device_quartz"
+
+-- Major anomaly field identification.
+--
+-- Fields are located through
+--   1. the known anomaly-field story objects (the addon's STATIC_FIELD_SPOTS
+--      list, duplicated here since pda.script keeps its table script-local)
+--   2. anomaly spots of the "Smart Dynamic Anomalies" module
+--      (smart_map_for_DAO.dao_spots, resolved through SIMBOARD.smarts_by_names)
+--   3. any smart terrain that currently shows a field circle on the map
+--      (the white primary_object spot)
+-- A position counts as inside a field when it lies within FIELD_MATCH_RADIUS
+-- metres of one of those field centres (2D distance).
+local FIELD_MATCH_RADIUS = 15
+local FREE_PARENT_ID     = 65535
+local NORMAL_SPOT        = "primary_object"
+
+-- Artefact detection by surveying devices. The scan runs from a global
+-- driver (not from the device wrapper), so it keeps working while a device
+-- is offline (player far away but on the same level).
+--
+-- There is no continuous sweep: a survey check is fired by events - a save
+-- load, the player entering an anomaly zone, and in-game time passing
+-- (sleep, time skips, guides and fast travel all advance the game clock).
+-- Fields are only checked while the player is on their level, because the
+-- artefact spawner only fills the anomaly zones of the loaded level
+-- (grok_artefacts_random_spawner / bind_anomaly_zone iterate the current
+-- level's zones)
+local ARTEFACT_SCAN_RADIUS  = 50    -- metres around the field centre
+local ARTEFACT_SCAN_CHUNK   = 300   -- alife object ids processed per update
+local SURVEY_CHECK_DELAY    = 1000  -- milliseconds between an event and its sweep
+local SURVEY_CHECK_INTERVAL = 300   -- game seconds between time-based checks
+local ZONE_POLL_INTERVAL    = 5     -- seconds between anomaly-zone polls
+
+-- Known anomaly-field story objects: the anomaly-field subset of
+-- pda.script's primary_objects_tbl (the GRA/DAO anomaly spots and the
+-- CoP-style named field spots)
+local STATIC_FIELD_SPOTS = {
+    "mar_2c_01_anomaly_spot",
+    "mar_2c_02_anomaly_spot",
+    "ds_2c_01_anomaly_spot",
+    "ds_2c_02_anomaly_spot",
+    "ds_2c_03_anomaly_spot",
+    "ds_2c_04_anomaly_spot",
+    "trc_2c_01_rift_anom_spot",
+    "trc_2c_02_chem_anom_spot",
+    "trc_2c_03_desolation_anom_spot",
+    "esc_2c_01_high_hopes_anomaly_spot",
+    "gar_2c_01_nwi_anomaly_spot",
+    "gar_2c_02_toaster_anomaly_spot",
+    "agr_2c_01_hg_anomaly_spot",
+    "bar_2c_01_grant_anomaly_spot",
+    "ros_2c_01_tunnel_anomaly_spot",
+    "ros_2c_02_crispy_train_anomaly_spot",
+    "mil_2c_01_hw_anomaly_spot",
+    "yan_2c_01_cd_anomaly_spot",
+    "cit_2c_01_ch_anomaly_spot",
+    "cit_2c_02_pg_anomaly_spot",
+    "lim_2c_01_ls_anomaly_spot",
+    "lim_2c_02_ib_anomaly_spot",
+    "rad_2c_01_bl_anomaly_spot",
+    "rad_2c_02_pp_anomaly_spot",
+    "pri_2c_01_pp_anomaly_spot",
+    "pri_2c_02_gt_anomaly_spot",
+    "pri_2c_03_wr_anomaly_spot",
+    "pri_2c_04_o_anomaly_spot",
+    "aes_2c_01_ce_anomaly_spot",
+    "aes_2c_02_p_anomaly_spot",
+    "aes2_2c_01_bo_anomaly_spot",
+    "aes2_2c_02_at_anomaly_spot",
+    "gen_2c_01_ss_anomaly_spot",
+    "mar_smart_terrain_11_3_anomaly_spot",
+    "mar_smart_terrain_10_10_anomaly_spot",
+    "mar_smart_terrain_base_anomaly_spot",
+    "mar_smart_terrain_8_8_anomaly_spot",
+    "mar_smart_terrain_12_2_anomaly_spot",
+    "mar_smart_terrain_3_7_anomaly_spot",
+    "mar_smart_terrain_3_3_anomaly_spot",
+    "esc_smart_terrain_1_11_anomaly_spot",
+    "esc_smart_terrain_8_9_anomaly_spot",
+    "esc_smart_terrain_5_4_anomaly_spot",
+    "gar_smart_terrain_3_7_anomaly_spot",
+    "gar_smart_terrain_3_7_anomaly_spot_2",
+    "gar_smart_terrain_2_4_anomaly_spot",
+    "gar_smart_terrain_6_7_anomaly_spot",
+    "gar_smart_terrain_5_6_anomaly_spot",
+    "gar_smart_terrain_1_7_anomaly_spot",
+    "agr_smart_terrain_1_3_anomaly_spot",
+    "agr_smart_terrain_4_4_near_3_anomaly_spot",
+    "agr_smart_terrain_5_7_anomaly_spot",
+    "agr_smart_terrain_5_2_anomaly_spot",
+    "agr_smart_terrain_1_2_anomaly_spot",
+    "val_smart_terrain_9_10_anomaly_spot",
+    "val_smart_terrain_6_4_anomaly_spot",
+    "val_smart_terrain_8_6_anomaly_spot",
+    "val_smart_terrain_9_4_anomaly_spot",
+    "val_smart_terrain_8_9_anomaly_spot",
+    "mil_smart_terrain_4_7_anomaly_spot",
+    "mil_smart_terrain_2_1_anomaly_spot",
+    "mil_smart_terrain_2_6_anomaly_spot",
+    "mil_smart_terrain_7_4_anomaly_spot",
+    "mil_smart_terrain_8_3_anomaly_spot",
+    "yan_smart_terrain_2_5_anomaly_spot",
+    "yan_smart_terrain_zombi_spawn_anomaly_spot",
+    "yan_smart_terrain_5_3_anomaly_spot",
+    "yan_smart_terrain_4_2_anomaly_spot",
+    "red_smart_terrain_6_3_anomaly_spot",
+    "red_smart_terrain_4_5_anomaly_spot",
+    "red_smart_terrain_monsters_anomaly_spot",
+    "red_smart_terrain_3_2_anomaly_spot",
+    "red_smart_terrain_6_6_anomaly_spot",
+    "red_smart_terrain_3_1_anomaly_spot",
+    "gen_smart_terrain_urod_anomaly_spot",
+    "trc_sim_13_anomal_zone_spot",
+    "pol_smart_terrain_1_2_anomaly_spot",
+    "zat_b20_spot",
+    "zat_b101_spot",
+    "zat_b14_spot",
+    "jup_b25_spot",
+    "jup_b206_spot",
+    "pri_b306_spot",
+    "pri_b304_spot",
+    "pri_anomal_vulkan_spot",
+    "pri_anomal_loza_spot",
+}
+
+-- Special name string ids for the CoP-style named fields. All other spots use
+-- "st_" .. target .. "_name", matching pda.script's primary_objects_tbl
+local STATIC_FIELD_SPOT_NAMES = {
+    zat_b20_spot           = "st_zat_fire_name_land",
+    zat_b101_spot          = "st_zat_waste_name_land",
+    zat_b14_spot           = "st_zat_tide_name_land",
+    jup_b25_spot           = "st_jup_earth_name_land",
+    jup_b206_spot          = "st_jup_grove_name_land",
+    pri_b306_spot          = "st_pri_plug_name_land",
+    pri_b304_spot          = "st_pri_bath_name_land",
+    pri_anomal_vulkan_spot = "st_pri_b307_name_land",
+    pri_anomal_loza_spot   = "st_pri_b302_name_land",
+}
+
+-- Log mod activity to the game log (set to true when debugging)
+local DEBUG = false
+
+-- Device currently in placement mode, kept so the item can be refunded if
+-- Hideout Furniture consumes it on a blocked placement
+local pending_item_condition = nil
+local pending_item_id        = nil
+
+-- Freshly created device waiting for its post-placement field check on the
+-- next actor update: { id = <object id>, condition = <item condition> }
+local pending_placement_check = nil
+
+-- True once the placeable_furniture.createObject guard has been installed
+local guard_installed = false
+
+-- Registry of devices currently surveying a field:
+--   [device obj id] = { field = {...}, known = { [artefact id] = section },
+--                       baseline_done = bool, level_id = number|nil }
+-- Kept in memory while the game runs; rebuilt from the stored device state
+-- (self-healing device detection in the scan) after a save load, so the
+-- scan keeps working for offline devices
+local surveyed_devices = {}
+
+-- Global survey check state (shared by all registered devices)
+local scan_cursor          = nil    -- nil = no sweep in progress
+local scan_found           = nil
+local scan_af_seen         = 0      -- af_ artefacts seen by the sweep
+local scan_sweep_requested = false  -- an event asked for a survey check
+local scan_sweep_at        = 0      -- when the requested sweep may start
+
+-- Event tracking for the survey checks
+local last_level_name      = nil
+local last_zone_name       = nil
+local last_check_game_time = nil
+local zone_poll_next_at    = 0
+
+-- Debug log helper. The message is fully formatted here before being
+-- passed to printf: the engine's printf/log argument handling can drop
+-- non-string arguments on some builds, which would leave raw %d/%s
+-- in the log instead of the values
+local function dbg(fmt, ...)
+    if not DEBUG then return end
+
+    local msg = fmt
+    if select("#", ...) > 0 then
+        local ok, formatted = pcall(string.format, fmt, ...)
+        if ok then msg = formatted end
+    end
+
+    pcall(function() printf("[ZAD] " .. tostring(msg)) end)
+end
+
+local function get_actor()
+    return db and db.actor or nil
+end
+
+-- Extracts the id of a server object (id is a number field) or a game object
+-- (id is the :id() method - accessing .id on a game object returns the method
+-- itself, never a number)
+local function get_object_id(obj)
+    if not obj then return nil end
+
+    local ok_field, field = pcall(function() return obj.id end)
+    if ok_field and type(field) == "number" then
+        return field
+    end
+
+    local ok_method, id = pcall(function() return obj:id() end)
+    if ok_method and type(id) == "number" then
+        return id
+    end
+
+    return nil
+end
+
+-- alife():object() that only accepts proper numeric ids
+local function server_object(id)
+    if type(id) ~= "number" then return nil end
+
+    local se = nil
+    pcall(function()
+        local sim = alife()
+        if sim then se = sim:object(id) end
+    end)
+    return se
+end
+
+--------------------------------------------------------------------------------
+-- Device state helpers (hf_obj_manager, same pattern as the Topaz device)
+--------------------------------------------------------------------------------
+local function get_device_data(obj_id)
+    if not obj_id or not hf_obj_manager or not hf_obj_manager.get_data then return {} end
+
+    local data = {}
+    pcall(function() data = hf_obj_manager.get_data(obj_id) or {} end)
+    if type(data) ~= "table" then data = {} end
+    return data
+end
+
+local function update_device_data(obj_id, fields)
+    if not obj_id or not hf_obj_manager then return end
+
+    if hf_obj_manager.update_data then
+        pcall(function() hf_obj_manager.update_data(obj_id, fields) end)
+    elseif hf_obj_manager.set_data then
+        pcall(function() hf_obj_manager.set_data(obj_id, fields) end)
+    end
+end
+
+-- Writes the device data back without the given fields
+local function clear_device_data_fields(obj_id, field_names)
+    if not obj_id or not hf_obj_manager then return end
+
+    local remove = {}
+    for i = 1, #field_names do remove[field_names[i]] = true end
+
+    local cleaned = {}
+    for k, v in pairs(get_device_data(obj_id)) do
+        if not remove[k] then cleaned[k] = v end
+    end
+
+    if hf_obj_manager.set_data then
+        pcall(function() hf_obj_manager.set_data(obj_id, cleaned) end)
+    elseif hf_obj_manager.update_data then
+        pcall(function() hf_obj_manager.update_data(obj_id, cleaned) end)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Major anomaly field detection
+--------------------------------------------------------------------------------
+local function spot_count(id, spot)
+    if not (level and level.map_has_object_spot and id and spot) then return 0 end
+    local ok, count = pcall(function() return level.map_has_object_spot(id, spot) end)
+    return (ok and count) or 0
+end
+
+local function actor_level_id()
+    if not (db and db.actor and game_graph) then return nil end
+    local ok, lvl = pcall(function()
+        return game_graph():vertex(db.actor:game_vertex_id()):level_id()
+    end)
+    return ok and lvl or nil
+end
+
+local function server_level_id(se)
+    if not (se and se.m_game_vertex_id and game_graph) then return nil end
+    local ok, lvl = pcall(function()
+        return game_graph():vertex(se.m_game_vertex_id):level_id()
+    end)
+    return ok and lvl or nil
+end
+
+local function on_actor_level(se, actor_lvl)
+    local obj_lvl = server_level_id(se)
+    return (not obj_lvl) or (not actor_lvl) or obj_lvl == actor_lvl
+end
+
+local function dist2d(a, b)
+    if not (a and b) then return nil end
+    local dx = (a.x or 0) - (b.x or 0)
+    local dz = (a.z or 0) - (b.z or 0)
+    return math.sqrt(dx * dx + dz * dz)
+end
+
+local function count_entries(t)
+    local n = 0
+    if type(t) == "table" then
+        for _ in pairs(t) do n = n + 1 end
+    end
+    return n
+end
+
+-- Returns the translated string for a string id, or nil when the id has no
+-- translation (game.translate_string returns the id itself then)
+local function translate_optional(str_id)
+    if not str_id then return nil end
+
+    local translated = nil
+    pcall(function() translated = game.translate_string(str_id) end)
+    if type(translated) == "string" and translated ~= "" and translated ~= str_id then
+        return translated
+    end
+    return nil
+end
+
+-- Display name of the current level (level names are string ids in Anomaly:
+-- game.translate_string(level.name()) -> "Zaton")
+local function get_level_display_name()
+    local name = nil
+    pcall(function() name = level.name() end)
+    if type(name) ~= "string" or name == "" then return "the Zone" end
+    return translate_optional(name) or name
+end
+
+-- Display name of an anomaly-field story object
+local function field_spot_display_name(target)
+    local name_id = STATIC_FIELD_SPOT_NAMES[target] or ("st_" .. target .. "_name")
+    return translate_optional(name_id) or target
+end
+
+-- Display name of a field smart: the map spot name ids, then the smart terrain name table, then the raw name
+local function field_smart_display_name(key, sm)
+    local from_spot = translate_optional("st_" .. key .. "_anomaly_spot_name")
+        or translate_optional("st_" .. key .. "_name")
+    if from_spot then return from_spot end
+
+    if type(get_smart_terrain_name) == "function" then
+        local ok, name = pcall(get_smart_terrain_name, sm)
+        if ok and type(name) == "string" and name ~= "" then
+            return name
+        end
+    end
+
+    return key
+end
+
+-- Display name of an artefact: the inv_name string id of its section, then
+-- the standard st_<section>_name id, then the raw section
+local function artefact_display_name(section)
+    if not section then return "Unknown artefact" end
+
+    local inv_name = nil
+    pcall(function()
+        local ini = system_ini()
+        if ini then inv_name = ini:r_string_ex(section, "inv_name") end
+    end)
+    if type(inv_name) == "string" and inv_name ~= "" then
+        local translated = translate_optional(inv_name)
+        if translated then return translated end
+    end
+
+    return translate_optional("st_" .. section .. "_name") or section
+end
+
+-- True when an artefact counts as lying in a field: free, or held by a
+-- container or an anomaly zone. Excluded: the actor's inventory, live
+-- stalkers' pouches and stashes
+local function artefact_counts_for_scan(se)
+    local pid = se.parent_id
+    if pid == nil or pid == FREE_PARENT_ID then return true end
+
+    local actor = get_actor()
+    if actor and pid == actor:id() then return false end
+
+    local parent = server_object(pid)
+    if parent then
+        local is_stalker = false
+        pcall(function() is_stalker = IsStalker(parent) end)
+        if is_stalker then
+            local alive = true
+            pcall(function() alive = parent:alive() end)
+            if alive then return false end
+        end
+
+        local is_invbox = false
+        pcall(function() is_invbox = IsInvbox(nil, parent:clsid()) end)
+        if is_invbox then return false end
+    end
+
+    return true
+end
+
+-- Major anomaly fields on the actor's level: name and centre position.
+local function collect_field_positions()
+    local fields = {}
+    local actor_lvl = actor_level_id()
+
+    -- 1. Known anomaly-field story objects
+    if get_story_object_id and alife_object then
+        for _, target in ipairs(STATIC_FIELD_SPOTS) do
+            local ok_id, id = pcall(get_story_object_id, target)
+            if ok_id and id and id ~= FREE_PARENT_ID then
+                local ok_se, se = pcall(alife_object, id)
+                if ok_se and se and se.position and on_actor_level(se, actor_lvl) then
+                    fields[#fields + 1] = {
+                        id = id,
+                        key = target,
+                        pos = se.position,
+                        name = field_spot_display_name(target),
+                    }
+                end
+            end
+        end
+    end
+
+    -- 2. and 3. DAO smart spots and smarts showing a field circle
+    if type(SIMBOARD) == "table" and type(SIMBOARD.smarts_by_names) == "table" then
+        local dao = rawget(_G, "smart_map_for_DAO")
+        local dao_spots = (type(dao) == "table") and dao.dao_spots or nil
+
+        for name, sm in pairs(SIMBOARD.smarts_by_names) do
+            if sm and sm.id and sm.position and on_actor_level(sm, actor_lvl) then
+                local is_field =
+                    (type(dao_spots) == "table" and dao_spots[name] ~= nil)
+                    or spot_count(sm.id, NORMAL_SPOT) ~= 0
+                if is_field then
+                    fields[#fields + 1] = {
+                        id = sm.id,
+                        key = name,
+                        pos = sm.position,
+                        name = field_smart_display_name(name, sm),
+                    }
+                end
+            end
+        end
+    end
+
+    return fields
+end
+
+-- Returns the major anomaly field ({id, key, name, pos}) containing pos, or
+-- nil. The nearest field wins when several overlap
+function find_anomaly_field_at(pos)
+    if not pos then return nil end
+
+    local fields = collect_field_positions()
+    local best, best_dist = nil, nil
+    for i = 1, #fields do
+        local d = dist2d(pos, fields[i].pos)
+        if d and d <= FIELD_MATCH_RADIUS and (not best_dist or d < best_dist) then
+            best_dist = d
+            best = fields[i]
+        end
+    end
+    return best
+end
+
+-- Returns the name of the major anomaly field containing pos, or nil
+function find_anomaly_field_name_at(pos)
+    local field = find_anomaly_field_at(pos)
+    return field and field.name or nil
+end
+
+-- Returns true when pos lies inside a major anomaly field
+function is_in_anomaly_field(pos)
+    return find_anomaly_field_name_at(pos) ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- Surveyed field registration
+-- The field a device surveys is registered in the device's own state when it
+-- is placed and unregistered when it is picked up. This keeps the field name
+-- available at any time and hands the future scanning logic the field's
+-- object id / story key to monitor.
+--------------------------------------------------------------------------------
+local SURVEYED_FIELD_KEYS = {
+    "surveyed_field_id",
+    "surveyed_field_key",
+    "surveyed_field_name",
+    "surveyed_field_x",
+    "surveyed_field_y",
+    "surveyed_field_z",
+    "surveyed_field_level",
+    "surveyed_field_gvid",
+}
+
+-- Returns a plain {x, y, z} copy of a position. Field positions can be
+-- engine vector userdata; the registry travels with the save, so it must
+-- only ever contain plain data (a live vector would not survive
+-- marshalling and would fail the load-time sanitizer)
+local function make_plain_pos(pos)
+    if not pos then return nil end
+
+    local x, y, z = nil, nil, nil
+    pcall(function() x, y, z = pos.x, pos.y, pos.z end)
+    if type(x) ~= "number" then return nil end
+    return { x = x, y = y or 0, z = z or 0 }
+end
+
+-- Builds a scan registry entry for a registered field
+local function make_device_entry(field)
+    local entry = {
+        -- Plain-data copy of the field (see make_plain_pos)
+        field = {
+            id = field.id,
+            key = field.key,
+            name = field.name,
+            pos = make_plain_pos(field.pos),
+            level_name = field.level_name,
+            gvid = field.gvid,
+        },
+        known = {},
+        baseline_done = false,
+        level_id = nil,
+    }
+
+    -- Level of the field: from the stored game vertex, or from the field
+    -- object when it is reachable
+    if type(field.gvid) == "number" and game_graph then
+        local ok, lvl = pcall(function() return game_graph():vertex(field.gvid):level_id() end)
+        if ok then entry.level_id = lvl end
+    end
+    if not entry.level_id and field.id then
+        local se = server_object(field.id)
+        if se then entry.level_id = server_level_id(se) end
+    end
+
+    -- A device registered while a sweep is already running has only seen a
+    -- part of it; skip its first commit so the baseline comes from a full
+    -- sweep (otherwise artefacts scanned before the registration would be
+    -- wrongly reported as new)
+    if scan_cursor ~= nil then
+        entry.skip_first_commit = true
+    end
+
+    return entry
+end
+
+-- Returns the field registered for the device
+-- ({id, key, name, pos, level_name, gvid}), or nil
+function get_surveyed_field(obj_id)
+    if not obj_id then return nil end
+
+    local data = get_device_data(obj_id)
+    if data.surveyed_field_id == nil and data.surveyed_field_key == nil and data.surveyed_field_name == nil then
+        return nil
+    end
+
+    local pos = nil
+    if data.surveyed_field_x ~= nil then
+        pos = {
+            x = data.surveyed_field_x,
+            y = data.surveyed_field_y or 0,
+            z = data.surveyed_field_z or 0,
+        }
+    end
+
+    return {
+        id = data.surveyed_field_id,
+        key = data.surveyed_field_key,
+        name = data.surveyed_field_name,
+        pos = pos,
+        level_name = data.surveyed_field_level,
+        gvid = data.surveyed_field_gvid,
+    }
+end
+
+-- Adds a device whose stored state carries a field registration to the scan
+-- registry. Called at placement and, self-healing, whenever the scan or the
+-- device itself re-encounters the object (e.g. after a save load)
+function try_register_existing_device(obj_id)
+    if not obj_id or surveyed_devices[obj_id] then return end
+
+    local ok, field = pcall(get_surveyed_field, obj_id)
+    if not (ok and field and field.pos) then
+        if ok and field then
+            dbg("Quartz device %s has no stored field position, not scanning", tostring(obj_id))
+        end
+        return
+    end
+
+    surveyed_devices[obj_id] = make_device_entry(field)
+
+    dbg("Quartz device %s registered for scanning (%s, level %s)",
+        tostring(obj_id), tostring(field.name), tostring(field.level_name))
+end
+
+-- Registers the field surveyed by the given device
+function register_surveyed_field(obj_id, field)
+    if not obj_id or not field then return end
+
+    -- Raw level name at placement, used in tips when the player is elsewhere
+    local level_name = nil
+    pcall(function() level_name = level.name() end)
+
+    -- Game vertex of the field object: lets the scan resolve the field's
+    -- level later even when the object itself is unreachable
+    local gvid = nil
+    local se = field.id and server_object(field.id) or nil
+    if se then gvid = se.m_game_vertex_id end
+
+    update_device_data(obj_id, {
+        surveyed_field_id = field.id,
+        surveyed_field_key = field.key,
+        surveyed_field_name = field.name,
+        surveyed_field_x = field.pos and field.pos.x or nil,
+        surveyed_field_y = field.pos and field.pos.y or nil,
+        surveyed_field_z = field.pos and field.pos.z or nil,
+        surveyed_field_level = level_name,
+        surveyed_field_gvid = gvid,
+    })
+
+    -- Register for scanning right away: the field data is in hand, there is
+    -- no need to read it back through the device's stored state
+    if not surveyed_devices[obj_id] then
+        surveyed_devices[obj_id] = make_device_entry({
+            id = field.id,
+            key = field.key,
+            name = field.name,
+            pos = field.pos,
+            level_name = level_name,
+            gvid = gvid,
+        })
+    end
+
+    dbg("Quartz registered surveyed field (key=%s name=%s)",
+        tostring(field.key), tostring(field.name))
+end
+
+-- Unregisters and returns the field surveyed by the given device
+function unregister_surveyed_field(obj_id)
+    local field = get_surveyed_field(obj_id)
+    if not field then return nil end
+
+    clear_device_data_fields(obj_id, SURVEYED_FIELD_KEYS)
+    surveyed_devices[obj_id] = nil
+
+    dbg("Quartz unregistered surveyed field (key=%s)", tostring(field.key))
+    return field
+end
+
+-- Position the device would be placed at (same computation as
+-- placeable_furniture: on the aim point, 0.1m above it)
+local function get_placement_position()
+    local pos = vector()
+    pcall(function()
+        pos:mad(device().cam_pos, device().cam_dir, level.get_target_dist())
+        pos.y = pos.y + 0.1
+    end)
+    return pos
+end
+
+-- A spot is valid when it is inside a field, or when the actor himself is
+-- standing in one (the device lands at the aim point, up to 5m away)
+function placement_allowed_for_position(pos)
+    if is_in_anomaly_field(pos) then return true end
+    local actor = get_actor()
+    return (actor and is_in_anomaly_field(actor:position())) or false
+end
+
+-- Placement is allowed when the aim point or the actor himself is inside a
+-- major anomaly field
+function is_placement_spot_valid()
+    return placement_allowed_for_position(get_placement_position())
+end
+
+local function show_placement_blocked()
+    dbg("Quartz placement blocked: not inside an anomaly field")
+    local actor = get_actor()
+    if actor then
+        news_manager.send_tip(actor, game.translate_string("st_zad_quartz_placement_impossible"), nil, nil, 30000)
+    end
+end
+
+-- Announces the field the freshly placed device will survey, e.g.
+-- "QUARTZ-1M is now surveying Scar in Zaton"
+local function show_placement_success_tip(field_name)
+    local actor = get_actor()
+    if not actor then return end
+
+    local zone = field_name or "an anomaly field"
+    local location = get_level_display_name()
+    news_manager.send_tip(actor, string.format(game.translate_string("st_zad_quartz_surveying"), zone, location), nil, nil, 30000)
+end
+
+-- Announces that the device stopped surveying its field when picked up, e.g.
+-- "QUARTZ-1M is no longer surveying Scar in Zaton"
+local function show_stopped_surveying_tip(field_name)
+    local actor = get_actor()
+    if not actor then return end
+
+    local zone = field_name or "an anomaly field"
+    local location = get_level_display_name()
+    news_manager.send_tip(actor, string.format(game.translate_string("st_zad_quartz_stopped_surveying"), zone, location), nil, nil, 30000)
+end
+
+-- Announces everything a survey check found, in one tip grouped by anomaly
+-- zone, e.g.
+--   New artefacts detected in Zaton:
+--   - Scorched Earth: Medusa, Soul
+--   - Fermi: Cocoon
+local function show_artefacts_detected_tip(findings)
+    if not findings or #findings == 0 then return end
+
+    local actor = get_actor()
+    if not actor then return end
+
+    local parts = {
+        string.format(
+            game.translate_string("st_zad_quartz_artefacts_detected"),
+            get_level_display_name()
+        )
+    }
+
+    for i = 1, #findings do
+        local finding = findings[i]
+
+        -- Each artefact section is listed once
+        local names = {}
+        local seen = {}
+        for j = 1, #finding.sections do
+            local section = finding.sections[j]
+            if not seen[section] then
+                seen[section] = true
+                names[#names + 1] = artefact_display_name(section)
+            end
+        end
+
+        parts[#parts + 1] = string.format(
+            game.translate_string("st_zad_quartz_artefacts_line"),
+            finding.field_name,
+            table.concat(names, ", ")
+        )
+    end
+
+    news_manager.send_tip(actor, table.concat(parts), nil, nil, 30000)
+    dbg("Quartz combined tip sent for %d zone(s)", #findings)
+end
+
+--------------------------------------------------------------------------------
+-- Survey driver (global)
+-- Runs on actor updates independently of the device objects being online.
+-- Checks are event-driven: a sweep over the alife object ids is requested by
+-- a save load, by the player entering a different anomaly zone, and by
+-- in-game time passing. Only fields on the player's level are inspected,
+-- because the artefact spawner only fills the loaded level's zones. When a
+-- sweep finishes, artefacts that were not in the field on the previous
+-- check are announced.
+--------------------------------------------------------------------------------
+local function artefact_in_device_field(se, entry)
+    local field = entry.field
+    local field_pos = field and field.pos
+    if not (field_pos and field_pos.x ~= nil) then return false end
+
+    local d = dist2d(se.position, field_pos)
+    if not (d and d <= ARTEFACT_SCAN_RADIUS) then return false end
+
+    -- The artefact must be on the same level as the field
+    if entry.level_id then
+        local art_lvl = server_level_id(se)
+        if art_lvl and art_lvl ~= entry.level_id then return false end
+    end
+
+    return artefact_counts_for_scan(se)
+end
+
+local function commit_survey_scan()
+    local found = scan_found or {}
+    scan_found = nil
+
+    local new_findings = {}
+
+    local actor_lvl = actor_level_id()
+    for dev_id, entry in pairs(surveyed_devices) do
+        -- Entries are only removed by unregister_surveyed_field (pickup).
+        -- Fields on another level are skipped entirely: the spawner only
+        -- fills the loaded level's zones, so there is nothing new to report
+        -- there and the device keeps its known set until the player
+        -- travels to that level
+        local on_level = (entry.level_id == nil) or (actor_lvl == nil)
+            or (entry.level_id == actor_lvl)
+        if on_level then
+            local dev_found = found[dev_id] or {}
+
+            if entry.skip_first_commit then
+                -- Registered during the sweep: wait for a full one
+                entry.skip_first_commit = nil
+            elseif not entry.baseline_done then
+                entry.baseline_done = true
+                dbg("Quartz survey baseline for %s (%d artefact(s) in field)",
+                    tostring(entry.field and entry.field.name), count_entries(dev_found))
+            else
+                local new_sections = nil
+                for art_id, section in pairs(dev_found) do
+                    if not entry.known[art_id] then
+                        new_sections = new_sections or {}
+                        new_sections[#new_sections + 1] = section
+                        dbg("Quartz detected new artefact %s in %s",
+                            tostring(section), tostring(entry.field and entry.field.name))
+                    end
+                end
+
+                if new_sections then
+                    new_findings[#new_findings + 1] = {
+                        field_name = (entry.field and entry.field.name) or "an anomaly field",
+                        sections = new_sections,
+                    }
+                end
+            end
+
+            dbg("Quartz survey commit: field=%s lvl=%s found=%d",
+                tostring(entry.field and entry.field.name),
+                tostring(entry.level_id),
+                count_entries(dev_found))
+
+            entry.known = dev_found
+        end
+    end
+
+    -- One combined tip for everything this check found, zones in a
+    -- deterministic order
+    if #new_findings > 0 then
+        table.sort(new_findings, function(a, b)
+            return a.field_name < b.field_name
+        end)
+        show_artefacts_detected_tip(new_findings)
+    end
+end
+
+-- Requests a survey check after one of the triggering events. Multiple
+-- events collapse into a single sweep thanks to the short delay
+local function request_survey_check(reason)
+    scan_sweep_requested = true
+    scan_sweep_at = time_global() + SURVEY_CHECK_DELAY
+    dbg("Quartz survey check requested (%s)", tostring(reason))
+end
+
+-- One step of the survey driver; called every actor update. A sweep only
+-- runs when an event requested one; it is still spread over several frames
+-- so it never causes a hitch
+local function survey_update()
+    local now = time_global()
+
+    if scan_cursor == nil then
+        if not scan_sweep_requested then return end
+        if now < scan_sweep_at then return end
+        scan_sweep_requested = false
+        scan_found = {}
+        scan_af_seen = 0
+        scan_cursor = 1
+        dbg("Quartz survey check started (%d device(s) registered)",
+            count_entries(surveyed_devices))
+    end
+
+    local sim = alife()
+    if not sim then
+        scan_cursor = nil
+        scan_sweep_requested = true
+        scan_sweep_at = now + SURVEY_CHECK_DELAY
+        return
+    end
+
+    local stop = scan_cursor + ARTEFACT_SCAN_CHUNK - 1
+    if stop > 65534 then stop = 65534 end
+
+    local found = scan_found
+    local actor_lvl = actor_level_id()
+    for id = scan_cursor, stop do
+        local se = server_object(id)
+        if se and se.position then
+            local section = nil
+            pcall(function() section = se:section_name() end)
+            if section then
+                if section == QUARTZ_PLACEABLE_SECTION then
+                    -- Self-healing: a device from an earlier session gets
+                    -- its field registration back from its stored state
+                    try_register_existing_device(id)
+                elseif string.sub(section, 1, 3) == "af_" then
+                    scan_af_seen = scan_af_seen + 1
+                    for dev_id, entry in pairs(surveyed_devices) do
+                        -- Only fields on the player's level are checked: the
+                        -- artefact spawner only fills the loaded level
+                        local on_level = (entry.level_id == nil) or (actor_lvl == nil)
+                            or (entry.level_id == actor_lvl)
+                        if on_level and artefact_in_device_field(se, entry) then
+                            found[dev_id] = found[dev_id] or {}
+                            found[dev_id][id] = section
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    scan_cursor = stop + 1
+    if scan_cursor > 65534 then
+        scan_cursor = nil
+        commit_survey_scan()
+        dbg("Quartz survey check done (af artefacts seen=%d, devices=%d)",
+            scan_af_seen, count_entries(surveyed_devices))
+    end
+end
+
+-- Watches the events that request a survey check:
+--   - save loaded (requested by on_game_load)
+--   - the player entering a different anomaly zone
+--   - in-game time passing (sleep, time skips, guides, fast travel)
+local function track_survey_events()
+    local now = time_global()
+
+    -- Level changes invalidate the tracked zone and are a travel event of
+    -- their own (guides, fast travel between levels)
+    local lvl_name = nil
+    pcall(function() lvl_name = level.name() end)
+    if lvl_name then
+        if last_level_name and lvl_name ~= last_level_name then
+            last_zone_name = nil
+            dbg("Quartz player changed level (%s)", tostring(lvl_name))
+            request_survey_check("player changed level")
+        end
+        last_level_name = lvl_name
+    end
+
+    -- Anomaly zone the player is inside, polled at a low rate
+    if now >= zone_poll_next_at then
+        zone_poll_next_at = now + ZONE_POLL_INTERVAL * 1000
+
+        local actor = get_actor()
+        local zone = nil
+        if actor then
+            zone = find_anomaly_field_name_at(actor:position())
+        end
+
+        if zone ~= last_zone_name then
+            last_zone_name = zone
+            request_survey_check("player changed anomaly zone")
+        end
+    end
+
+    -- In-game clock: covers sleep, time skips, guides and fast travel
+    local game_time = nil
+    pcall(function() game_time = game.get_game_time() end)
+    if game_time then
+        if last_check_game_time == nil then
+            last_check_game_time = game_time
+        elseif game_time:diffSec(last_check_game_time) >= SURVEY_CHECK_INTERVAL then
+            last_check_game_time = game_time
+            request_survey_check("time passed")
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Item functors (wired in items_zad_devices.ltx)
+--------------------------------------------------------------------------------
+
+-- Inventory action label, mirrors placeable_furniture.place_item
+function place_item(obj)
+    return game.translate_string("st_place_furniture")
+end
+
+-- Inventory action, mirrors placeable_furniture.func_place_item but refuses
+-- to start placement outside a major anomaly field
+function func_place_item(obj)
+    if not obj then return end
+
+    if not is_placement_spot_valid() then
+        pcall(function() hide_hud_inventory() end)
+        show_placement_blocked()
+        return
+    end
+
+    -- The placement confirm goes through the createObject guard below;
+    -- make sure it is installed before the player can confirm
+    install_placement_guard()
+
+    pending_item_condition = obj:condition()
+    pending_item_id = obj:id()
+    pending_placement_check = nil
+    placeable_furniture.func_place_item(obj)
+end
+
+--------------------------------------------------------------------------------
+-- Final placement guard (layer 2)
+-- Hideout Furniture lets the player walk around while holding the device.
+-- If he steps out of the anomaly field before pressing the place key the
+-- device must still not be placed, so placeable_furniture's createObject()
+-- is wrapped: a blocked Quartz placement returns nil (no object is spawned)
+-- and the device is refunded, since Hideout Furniture releases the inventory
+-- item right after createObject() returns.
+-- If the function cannot be intercepted (it may be script-local depending on
+-- the Hideout Furniture version), the post-placement check below still
+-- enforces the rule.
+--------------------------------------------------------------------------------
+local function refund_item(cond)
+    local actor = get_actor()
+    if not actor then return end
+
+    local section = QUARTZ_ITEM_SECTION
+    pcall(function()
+        local ini = system_ini()
+        if ini then
+            section = ini:r_string_ex(QUARTZ_PLACEABLE_SECTION, "item_section", section)
+        end
+    end)
+
+    pcall(function() alife_create_item(section, actor, {cond = cond or 1.0}) end)
+end
+
+local function refund_pending_item()
+    if pending_item_condition == nil and pending_item_id == nil then return end
+
+    local cond = pending_item_condition
+    if cond == nil and pending_item_id then
+        local item = server_object(pending_item_id)
+        if item then
+            local ok, live_cond = pcall(function() return item:condition() end)
+            if ok and type(live_cond) == "number" then cond = live_cond end
+        end
+    end
+
+    pending_item_condition = nil
+    pending_item_id = nil
+    refund_item(cond)
+end
+
+local original_create_object = nil
+local guarded_create = nil
+
+guarded_create = function(world_obj)
+    if world_obj == QUARTZ_PLACEABLE_SECTION and not is_placement_spot_valid() then
+        show_placement_blocked()
+        refund_pending_item()
+        return nil
+    end
+
+    -- On success the pending state is consumed by quartz_device.init,
+    -- which schedules the post-placement check
+    if original_create_object then
+        return original_create_object(world_obj)
+    end
+end
+
+function install_placement_guard()
+    if guard_installed then return end
+
+    -- Locate Hideout Furniture's createObject - normally a field of its
+    -- module table (Anomaly script files define their functions in their own
+    -- table); a plain global is kept as a fallback for other versions
+    local fn = nil
+    if type(placeable_furniture) == "table" and type(placeable_furniture.createObject) == "function" then
+        fn = placeable_furniture.createObject
+    end
+    if not fn then
+        local global_create = rawget(_G, "createObject")
+        if type(global_create) == "function" then fn = global_create end
+    end
+
+    if fn == guarded_create then
+        guard_installed = true
+        return
+    end
+    if not fn then
+        dbg("Quartz placement guard not installed: no createObject found")
+        return
+    end
+
+    original_create_object = fn
+
+    local patched_table = false
+    if type(placeable_furniture) == "table" and placeable_furniture.createObject == fn then
+        placeable_furniture.createObject = guarded_create
+        patched_table = true
+    end
+
+    local patched_global = false
+    if rawget(_G, "createObject") == fn then
+        rawset(_G, "createObject", guarded_create)
+        patched_global = true
+    end
+
+    if patched_table or patched_global then
+        guard_installed = true
+        dbg("Quartz placement guard installed (table=%s global=%s)",
+            tostring(patched_table), tostring(patched_global))
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Post-placement enforcement (layer 3)
+-- Runs one update after a Quartz device has been created. This layer does
+-- not depend on patching Hideout Furniture: if the device did not end up
+-- inside a major anomaly field - the player moved out while holding it - the
+-- device is removed again, the item refunded and the player informed.
+--------------------------------------------------------------------------------
+local function process_pending_placement_check()
+    if not pending_placement_check then return end
+    local check = pending_placement_check
+    pending_placement_check = nil
+
+    local se = server_object(check.id)
+    local pos = se and se.position
+    if pos and placement_allowed_for_position(pos) then
+        -- placement was legal: the device stays, registers the field it
+        -- surveys and announces the start of the survey
+        local field = find_anomaly_field_at(pos)
+        if not field then
+            local actor = get_actor()
+            if actor then
+                field = find_anomaly_field_at(actor:position())
+            end
+        end
+
+        register_surveyed_field(check.id, field)
+        show_placement_success_tip(field and field.name)
+
+        -- The first check right after placement establishes the baseline
+        request_survey_check("device placed")
+
+        dbg("Quartz post-placement check passed (inside anomaly field: %s)",
+            tostring(field and field.name))
+        return
+    end
+
+    if se then
+        pcall(function() alife():release(se, true) end)
+    end
+
+    refund_item(check.condition)
+    show_placement_blocked()
+
+    dbg("Quartz placement rejected after confirm (outside anomaly field)")
+end
+
+--------------------------------------------------------------------------------
+-- Placed object binder (script_binding in items_zad_devices.ltx)
+--------------------------------------------------------------------------------
+local wrapper_class_ready = false
+
+-- The class is created lazily because this script can be loaded before
+-- bind_hf_base.script
+local function ensure_wrapper_class()
+    if wrapper_class_ready then return end
+    if type(bind_hf_base) ~= "table" or not bind_hf_base.hf_binder_wrapper then return end
+
+    class "quartz_device_wrapper" (bind_hf_base.hf_binder_wrapper)
+
+    function quartz_device_wrapper:__init(obj) super(obj)
+        pcall(function() self.object:set_tip_text(game.translate_string("st_interact")) end)
+    end
+
+    function quartz_device_wrapper:net_spawn(se_abstract)
+        if not self.object then return false end
+        if bind_hf_base.hf_binder_wrapper.net_spawn then
+            if bind_hf_base.hf_binder_wrapper.net_spawn(self, se_abstract) == false then
+                return false
+            end
+        end
+
+        local phys = self.object:get_physics_shell()
+        if phys then phys:freeze() end
+
+        return true
+    end
+
+    function quartz_device_wrapper:net_destroy()
+        if not self.object then return end
+        if bind_hf_base.hf_binder_wrapper.net_destroy then
+            bind_hf_base.hf_binder_wrapper.net_destroy(self)
+        end
+    end
+
+    --------------------------------------------------------------------------
+    -- Picking the device back up stops the survey and unregisters its field
+    --------------------------------------------------------------------------
+    function quartz_device_wrapper:pickup()
+        local obj_id = get_object_id(self.object)
+
+        -- The field registered when the device was placed
+        local field = obj_id and get_surveyed_field(obj_id) or nil
+
+        -- Fallback position for devices placed before registration existed
+        -- (resolved before the parent pickup removes the object)
+        local fallback_pos = nil
+        if not field then
+            pcall(function() fallback_pos = self.object:position() end)
+        end
+
+        local result = true
+        if bind_hf_base.hf_binder_wrapper.pickup then
+            result = bind_hf_base.hf_binder_wrapper.pickup(self)
+        end
+
+        if result == false then
+            -- pickup refused: the device stays, keep the registration
+            return result
+        end
+
+        if obj_id then
+            unregister_surveyed_field(obj_id)
+        end
+
+        local field_name = field and field.name
+        if not field_name and fallback_pos then
+            field_name = find_anomaly_field_name_at(fallback_pos)
+        end
+        if not field_name then
+            local actor = get_actor()
+            if actor then
+                field_name = find_anomaly_field_name_at(actor:position())
+            end
+        end
+
+        show_stopped_surveying_tip(field_name)
+        return result
+    end
+
+    wrapper_class_ready = true
+end
+
+function init(obj)
+    -- A device created while a placement session is active is the device the
+    -- player just put down: take ownership of the pending state and verify
+    -- its position on the next update
+    local obj_id = get_object_id(obj)
+    if obj_id and (pending_item_condition ~= nil or pending_item_id ~= nil) then
+        pending_placement_check = {
+            id = obj_id,
+            condition = pending_item_condition
+        }
+        pending_item_condition = nil
+        pending_item_id = nil
+    end
+
+    -- After a save load the scan registry is empty: if this device already
+    -- has a field registration (it was placed earlier), pick it up again
+    if obj_id then
+        try_register_existing_device(obj_id)
+    end
+
+    ensure_wrapper_class()
+    if wrapper_class_ready then
+        obj:bind_object(quartz_device_wrapper(obj).binder)
+    else
+        bind_hf_base.init(obj)
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Save / load
+-- The scan registry travels with the save, so right after a load a device
+-- keeps surveying while it is offline (player far away or on another level),
+-- without depending on hf_obj_manager data being reachable
+--------------------------------------------------------------------------------
+local function save_survey_state(m_data)
+    if not m_data then return end
+    m_data.zad_quartz_surveyed = surveyed_devices
+end
+
+local function load_survey_state(m_data)
+    if not m_data then return end
+
+    local stored = m_data.zad_quartz_surveyed
+    if type(stored) ~= "table" then return end
+
+    -- Keep only well-formed entries and re-normalise their positions, so a
+    -- partially restored table can never poison the scan
+    local restored = {}
+    for dev_id, entry in pairs(stored) do
+        if type(dev_id) == "number" and type(entry) == "table"
+            and type(entry.field) == "table" then
+            local pos = make_plain_pos(entry.field.pos)
+            if pos then
+                entry.field.pos = pos
+                entry.known = (type(entry.known) == "table") and entry.known or {}
+                restored[dev_id] = entry
+            end
+        end
+    end
+
+    surveyed_devices = restored
+    dbg("Quartz restored %d surveyed device(s) from the save",
+        count_entries(surveyed_devices))
+end
+
+--------------------------------------------------------------------------------
+-- Entry points
+--------------------------------------------------------------------------------
+-- One actor update handler: placement checks plus the artefact scan driver
+local function actor_update()
+    process_pending_placement_check()
+
+    -- The survey must never take the whole update down with it: a hidden
+    -- runtime error would otherwise silently stop detection until reload
+    local ok, err = pcall(function()
+        track_survey_events()
+        survey_update()
+    end)
+    if not ok then
+        dbg("Quartz survey error: %s", tostring(err))
+    end
+end
+
+function on_game_start()
+    ensure_wrapper_class()
+    install_placement_guard()
+    RegisterScriptCallback("actor_on_first_update", install_placement_guard)
+    RegisterScriptCallback("actor_on_update", actor_update)
+    RegisterScriptCallback("save_state", save_survey_state)
+    RegisterScriptCallback("load_state", load_survey_state)
+end
+
+function on_game_load()
+    -- Placement session state must not survive a save load
+    pending_item_condition = nil
+    pending_item_id = nil
+    pending_placement_check = nil
+
+    -- The survey driver restarts cleanly; the registry itself is restored
+    -- by load_state and keeps its per-device known sets
+    scan_cursor = nil
+    scan_found = nil
+    last_level_name = nil
+    last_zone_name = nil
+    last_check_game_time = nil
+    zone_poll_next_at = 0
+
+    -- Always survey right after a load
+    scan_sweep_requested = true
+    scan_sweep_at = time_global() + SURVEY_CHECK_DELAY
+    dbg("Quartz survey check requested (save loaded)")
+
+    install_placement_guard()
+end
